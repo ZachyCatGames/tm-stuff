@@ -81,7 +81,7 @@ var usbif = new UsbInterface(selectedDevice);
 var pktMgr = new UsbPacketManager(usbif, serviceMgr);
 
 serviceMgr.SetPacketManager(pktMgr);
-serviceMgr.RegisterService(new HostHtcsService(serviceMgr));
+serviceMgr.RegisterService(new HostHtcsService(serviceMgr, new HostPortManager()));
 
 var packet = serviceMgr.AllocRecvPacket();
 

@@ -70,7 +70,7 @@ public class HtcsSocketManager
         public virtual void Cleanup() {}
     }
 
-    class PortSocket : HtcsSocket
+    class TargetPort : HtcsSocket
     {
         public bool isListening;
 
@@ -78,7 +78,7 @@ public class HtcsSocketManager
         Task hostAcceptTask;
         SemaphoreSlim pendingAcceptNum;
 
-        public PortSocket(int fd, SockAddrHtcs addr) : base(fd, addr)
+        public TargetPort(int fd, SockAddrHtcs addr) : base(fd, addr)
         {
             this.type = HtcsSocketType.Port;
             this.isListening = false;
@@ -149,13 +149,17 @@ public class HtcsSocketManager
     int curFileDescriptor;
     readonly HtcsSocket?[] sockets = new HtcsSocket[SocketCountMax];
 
-    public HtcsSocketManager()
+    readonly HostPortManager hostPortMgr;
+
+    public HtcsSocketManager(HostPortManager hpm)
     {
         for (int i = 0; i < SocketCountMax; i++)
         {
             sockets[i] = null;
         }
         curFileDescriptor = 1;
+
+        this.hostPortMgr = hpm;
     }
 
     int AllocateFileDescriptor()
@@ -177,7 +181,7 @@ public class HtcsSocketManager
         return -1;
     }
 
-    PortSocket? FindPortByName(string portName)
+    TargetPort? FindPortByName(string portName)
     {
         foreach (var sock in sockets)
         {
@@ -185,7 +189,7 @@ public class HtcsSocketManager
             {
                 Console.WriteLine(String.Format("{0} {1}", portName, s.portName));
                 Console.WriteLine();
-                return (PortSocket)sock;
+                return (TargetPort)sock;
             }
         }
         return null;
@@ -248,7 +252,7 @@ public class HtcsSocketManager
 
         /* Create a new Port socket. */
         // TODO: register the socket under the target's name
-        var port = new PortSocket(fd, addr);
+        var port = new TargetPort(fd, addr);
 
         /* Assign it to the file descriptor. */
         sockets[fd] = port;
@@ -274,7 +278,7 @@ public class HtcsSocketManager
         }
 
         /* Get it as a Port. */
-        PortSocket port = (PortSocket)sockRaw;
+        TargetPort port = (TargetPort)sockRaw;
 
         /* Is it already listening? */
         if (port.isListening)
@@ -310,7 +314,7 @@ public class HtcsSocketManager
         }
 
         /* Get it as a Port. */
-        PortSocket port = (PortSocket)sockRaw;
+        TargetPort port = (TargetPort)sockRaw;
 
         /* Is it listening? */
         if (!port.isListening)
@@ -335,8 +339,32 @@ public class HtcsSocketManager
         return new Tuple<int, SockAddrHtcs>(newFd, port.GetAddress());
     }
 
-    // later
+    public async Task<int> ConnectAsync(int fd, SockAddrHtcs addr) {
+        /* Get the socket. */
+        HtcsSocket? sockRaw = this.sockets[fd];
 
+        /* It must be initialized but inactive. */
+        if (sockRaw is not HtcsSocket sock) {
+            // TODO: errno
+            return -1;
+        }
+        else if (sock.type != HtcsSocketType.None) {
+            // TODO: errno
+            return -1;
+        }
+
+        /* Try to connect to the port. */
+        Socket hostSock = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        int res = await this.hostPortMgr.ConnectAsync(hostSock, addr);
+        if (res != 0) {
+            return res;
+        }
+
+        /* Create a new session socket. */
+        this.sockets[fd] = new SessionSocket(fd, addr, hostSock);
+
+        return 0;
+    }
 
     public async Task<int> RecvPacketAsync(int fd, ArraySegment<byte> buffer, int flags)
     {
