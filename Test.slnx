@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Test/Test.csproj"/>
+  <Folder Name="/Solution Items/">
+    <File Path="Test/PacketHeader.cs"/>
+    <File Path="Test/Program.cs"/>
+  </Folder>
+</Solution>

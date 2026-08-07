@@ -1,0 +1,5 @@
+import os
+
+for i in range(230000000):
+    os.remove(f'recv_{i}')
+

@@ -1,0 +1,5 @@
+Test/bin/*
+Test/obj/*
+
+recv_*
+send_*
