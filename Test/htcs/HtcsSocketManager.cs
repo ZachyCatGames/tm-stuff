@@ -5,22 +5,6 @@ using System.Threading;
 
 namespace Test.htcs;
 
-/*
-Each function has two return values:
-    - direct return value
-        - this is usually 0 on success or some negative on error
-        - the main exception is Socket / CreateSocket, which returns an fd
-    - error / result code
-        - this is probably SocketError
-*/
-
-/*
-    needs to work as:
-        a device socket connecting to a host port
-        a device port
-        a device port w/ a connection from a host socket
-*/
-
 public class HtcsSocketManager
 {
     const int SocketCountMax = 0x1000;
@@ -31,11 +15,6 @@ public class HtcsSocketManager
         Port,
         Session,
     }
-
-    // could have a ring buffer for each socket recv / send end
-    // each socket has a constantly running send / recv task that feeds
-    // the ring buffer into the host socket
-    // the tasks are started on accept / bind
 
     class HtcsSocket
     {
@@ -326,9 +305,7 @@ public class HtcsSocketManager
 
         /* Wait for the host socket. */
         // TODO: error handling
-        Console.WriteLine("Cringe");
         Socket newHostSock = await port.HostAcceptAsync();
-        Console.WriteLine("Cringe2");
 
         /* Allocate a file desc for the new socket. */
         int newFd = this.AllocateFileDescriptor();
