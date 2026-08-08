@@ -3,7 +3,7 @@ namespace Test.htcs;
 public class HtcsSocketTask : ServiceTask
 {
     readonly HtcsSocketManager htcsManager;
-    public HtcsSocketTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.HtcsSocket, taskId, 0)
+    public HtcsSocketTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Socket, taskId, 0)
     {
         this.htcsManager = manager;
     }

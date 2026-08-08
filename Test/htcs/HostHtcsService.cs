@@ -18,25 +18,25 @@ public class HostHtcsService : Service
         Console.WriteLine("packet get");
         switch ((TaskType)pkt.taskType)
         {
-            case TaskType.HtcsSocket:
+            case TaskType.Socket:
                 task = this.ProcessSocket(pkt);
                 break;
-            case TaskType.HtcsClose:
+            case TaskType.Close:
                 task = this.ProcessClose(pkt);
                 break;
-            case TaskType.HtcsBind:
+            case TaskType.Bind:
                 task = this.ProcessBind(pkt);
                 break;
-            case TaskType.HtcsListen:
+            case TaskType.Listen:
                 task = this.ProcessListen(pkt);
                 break;
-            case TaskType.HtcsAccept:
+            case TaskType.Accept:
                 task = this.ProcessAccept(pkt);
                 break;
-            case TaskType.HtcsRecv:
+            case TaskType.Recv:
                 task = this.ProcessRecv(pkt);
                 break;
-            case TaskType.HtcsSend:
+            case TaskType.Send:
                 task = this.ProcessSend(pkt);
                 break;
             default:

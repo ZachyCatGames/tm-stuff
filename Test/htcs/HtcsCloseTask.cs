@@ -3,7 +3,7 @@ namespace Test.htcs;
 public class HtcsCloseTask : ServiceTask
 {
     HtcsSocketManager htcsManager;
-    public HtcsCloseTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.HtcsClose, taskId, 0)
+    public HtcsCloseTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Close, taskId, 0)
     {
         this.htcsManager = manager;
     }
