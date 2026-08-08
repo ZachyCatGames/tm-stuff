@@ -10,6 +10,11 @@ public class FileDescriptorManager<T> {
     {
         this.MaxObjectCount = count;
         this.objects = new T[count];
+        
+        for (int i = 0; i < count; i++)
+        {
+            this.objects[i] = default(T);
+        }
     }
     
     public int AllocateFileDescriptor()
@@ -29,6 +34,16 @@ public class FileDescriptorManager<T> {
         }
 
         return -1;
+    }
+    
+    public int RegisterNewT(T obj) {
+        /* Allocate an fd. */
+        int fd = this.AllocateFileDescriptor();
+        
+        /* Assign it to the object. */
+        objects[fd] = obj;
+        
+        return fd;
     }
     
     public T? FindIf(Predicate<T> pred) {
