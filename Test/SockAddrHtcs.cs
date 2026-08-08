@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Text;
 using Test.htcs;
 namespace Test;
@@ -31,8 +32,8 @@ public class SockAddrHtcs
     public static SockAddrHtcs FromBytes(ArraySegment<byte> bytes)
     {
         UInt16 family = BitConverter.ToUInt16(bytes);
-        string peerName = ASCIIEncoding.ASCII.GetString(bytes[0x02..0x22]);
-        string portName = ASCIIEncoding.ASCII.GetString(bytes[0x22..0x42]);
+        string peerName = Util.DecodeNullTerminatedString(Encoding.UTF8, bytes[0x02..0x22]);
+        string portName = Util.DecodeNullTerminatedString(Encoding.UTF8, bytes[0x22..0x42]);
         return new SockAddrHtcs((HtcsAddressFamily)family, peerName, portName);
     }
 }

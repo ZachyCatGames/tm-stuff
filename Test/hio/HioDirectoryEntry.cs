@@ -26,13 +26,14 @@ public class HioDirectoryEntry {
     
     public void ToBytes(byte[] bs, int offs)
     {
+        
         using (var ms = new MemoryStream(bs, offs, MaxPackedSize, true))
         {
-            // TODO: is UTF-8 correct here?
             using (var writer = new BinaryWriter(ms))
             {
                 writer.Write((byte)type);
-                writer.Write(name);
+                writer.Write(Encoding.UTF8.GetBytes(name));
+                writer.Write((byte)0); // terminator
                 writer.Write(size);
             }
         }
