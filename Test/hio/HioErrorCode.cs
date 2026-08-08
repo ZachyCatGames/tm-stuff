@@ -1,7 +1,7 @@
 
 namespace Test.hio;
 
-public enum ErrorCodes {
+public enum HioErrorCode {
     SuccessContinue         = 0,
     SuccessEnd              = 1,
     AllocationFailed        = 2,
