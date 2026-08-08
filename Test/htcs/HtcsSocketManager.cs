@@ -69,7 +69,6 @@ public class HtcsSocketManager
             hostSocket.Bind(new IPEndPoint(0x0100007F, 0));
 
             /* Log host socket info. */
-            //https://stackoverflow.com/questions/9895129/how-do-i-find-an-available-port-before-bind-the-socket-with-the-endpoint
             Console.WriteLine(((IPEndPoint)hostSocket.LocalEndPoint).Port);
         }
 
@@ -84,8 +83,16 @@ public class HtcsSocketManager
 
         public Task<Socket> HostAcceptAsync()
         {
-            /* Wait for the host socket to accept. */
-            return hostSocket.AcceptAsync();
+            try {
+                /* Wait for the host socket to accept. */
+                return hostSocket.AcceptAsync();
+            }
+            catch(SocketException excpt) {
+                throw new HtcsException(excpt.SocketErrorCode);
+            }
+            catch(ObjectDisposedException excpt) {
+                throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
+            }
         }
 
         public override void Cleanup()
@@ -108,14 +115,30 @@ public class HtcsSocketManager
 
         public async Task<int> RecvAsync(ArraySegment<byte> buf, int flags)
         {
-            /* Receive buffer. */
-            return hostSocket.Receive(buf);
+            try {
+                /* Receive buffer. */
+                return hostSocket.Receive(buf);
+            }
+            catch(SocketException excpt) {
+                throw new HtcsException(excpt.SocketErrorCode);
+            }
+            catch(ObjectDisposedException excpt) {
+                throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
+            }
         }
 
         public async Task<int> SendAsync(ArraySegment<byte> buf, int flags)
         {
-            /* Send the buffer. */
-            return hostSocket.Send(buf);
+            try {
+                /* Send the buffer. */
+                return hostSocket.Send(buf);
+            }
+            catch(SocketException excpt) {
+                throw new HtcsException(excpt.SocketErrorCode);
+            }
+            catch(ObjectDisposedException excpt) {
+                throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
+            }
         }
 
         public override void Cleanup()
@@ -174,6 +197,10 @@ public class HtcsSocketManager
         return null;
     }
 
+    bool DoesPortNameExist(string portName) {
+        return hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
+    }
+
     public int CreateSocket()
     {
         /* Allocate a file descriptor. */
@@ -190,44 +217,31 @@ public class HtcsSocketManager
         return fd;
     }
 
-    public int CloseSocket(int fd)
+    public void CloseSocket(int fd)
     {
         if (sockets[fd] == null)
-            return -1;
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
 
         /* Free the socket. */
         sockets[fd] = null;
-        return 0;
     }
 
-    public int Bind(int fd, SockAddrHtcs addr)
+    public void Bind(int fd, SockAddrHtcs addr)
     {
         /* Is this name already in use? */
-        if (this.FindPortByName(addr.portName) is HtcsSocket s)
-        {
-            // TODO: errno
-            Console.WriteLine("name in use");
-            return -1;
-        }
+        if (this.DoesPortNameExist(addr.portName))
+            throw new HtcsException(ErrorCode.HTCS_EADDRINUSE);
 
         /* Must be a valid socket. */
         if (sockets[fd] == null)
-        {
-            // TODO: error
-            Console.WriteLine("invalid socket");
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
 
         /* Get the socket. */
         HtcsSocket sock = (HtcsSocket)sockets[fd];
 
         /* Must not be connected. */
         if (sock.type != HtcsSocketType.None)
-        {
-            // TODO: errno
-            Console.WriteLine("socket already connected");
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EINVAL);
 
         /* Create a new Port socket. */
         // TODO: register the socket under the target's name
@@ -235,76 +249,49 @@ public class HtcsSocketManager
 
         /* Assign it to the file descriptor. */
         sockets[fd] = port;
-
-        return 0;
     }
 
-    public int Listen(int fd, int backlogCount)
+    public void Listen(int fd, int backlogCount)
     {
         /* Get the socket. */
         HtcsSocket? sockRaw = sockets[fd];
 
         /* It must be real and be a port. */
         if (sockRaw is not HtcsSocket s)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
         else if (s.type != HtcsSocketType.Port)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EADDRINUSE);
 
         /* Get it as a Port. */
         TargetPort port = (TargetPort)sockRaw;
 
-        /* Is it already listening? */
-        if (port.isListening)
-        {
-            // TODO: errno
-            return -1;
-        }
+        /* Do nothing if already listening. */
+        if (port.isListening) 
+            return;
 
         /* Begin listening. */
-        // TODO: error handling
         port.HostListen(backlogCount);
-
-        return 0;
     }
 
-    public async Task<Tuple<int, SockAddrHtcs?>> AcceptAsync(int fd)
+    public async Task<SockAddrHtcs> AcceptAsync(int fd)
     {
         /* Get the socket. */
         HtcsSocket? sockRaw = sockets[fd];
 
         /* It must be real and be a port. */
         if (sockRaw is not HtcsSocket s)
-        {
-            // TODO: errno
-            Console.WriteLine("Accept: sock not initialized");
-            return new Tuple<int, SockAddrHtcs?>(-1, null);
-        }
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
         else if (s.type != HtcsSocketType.Port)
-        {
-            // TODO: errno
-            Console.WriteLine("Accept: Socket not a port");
-            return new Tuple<int, SockAddrHtcs?>(-1, null);
-        }
+            throw new HtcsException(ErrorCode.HTCS_EINVAL);
 
         /* Get it as a Port. */
         TargetPort port = (TargetPort)sockRaw;
 
         /* Is it listening? */
         if (!port.isListening)
-        {
-            // TODO: errno
-            Console.WriteLine("Accept: Socket not listening");
-            return new Tuple<int, SockAddrHtcs?>(-1, null);
-        }
+            throw new HtcsException(ErrorCode.HTCS_EINVAL);
 
         /* Wait for the host socket. */
-        // TODO: error handling
         Socket newHostSock = await port.HostAcceptAsync();
 
         /* Allocate a file desc for the new socket. */
@@ -313,34 +300,25 @@ public class HtcsSocketManager
         /* Setup a session socket. */
         sockets[newFd] = new SessionSocket(newFd, port.GetAddress(), newHostSock);
 
-        return new Tuple<int, SockAddrHtcs>(newFd, port.GetAddress());
+        return port.GetAddress();
     }
 
-    public async Task<int> ConnectAsync(int fd, SockAddrHtcs addr) {
+    public async Task ConnectAsync(int fd, SockAddrHtcs addr) {
         /* Get the socket. */
         HtcsSocket? sockRaw = this.sockets[fd];
 
         /* It must be initialized but inactive. */
-        if (sockRaw is not HtcsSocket sock) {
-            // TODO: errno
-            return -1;
-        }
-        else if (sock.type != HtcsSocketType.None) {
-            // TODO: errno
-            return -1;
-        }
+        if (sockRaw is not HtcsSocket sock)
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
+        else if (sock.type != HtcsSocketType.None)
+            throw new HtcsException(ErrorCode.HTCS_EISCONN);
 
         /* Try to connect to the port. */
         Socket hostSock = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        int res = await this.hostPortMgr.ConnectAsync(hostSock, addr);
-        if (res != 0) {
-            return res;
-        }
+        await this.hostPortMgr.ConnectAsync(hostSock, addr);
 
         /* Create a new session socket. */
         this.sockets[fd] = new SessionSocket(fd, addr, hostSock);
-
-        return 0;
     }
 
     public async Task<int> RecvPacketAsync(int fd, ArraySegment<byte> buffer, int flags)
@@ -350,15 +328,9 @@ public class HtcsSocketManager
 
         /* Make sure the socket is a valid and a session. */
         if (sockRaw is not HtcsSocket s)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
         else if (s.type != HtcsSocketType.Session)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_ENOTCONN);
 
         /* Cast to session. */
         var session = (SessionSocket)sockRaw;
@@ -374,15 +346,9 @@ public class HtcsSocketManager
 
         /* Make sure the socket is a valid and a session. */
         if (sockRaw is not HtcsSocket s)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_EBADF);
         else if (s.type != HtcsSocketType.Session)
-        {
-            // TODO: errno
-            return -1;
-        }
+            throw new HtcsException(ErrorCode.HTCS_ENOTCONN);
 
         /* Cast to session. */
         var session = (SessionSocket)sockRaw;

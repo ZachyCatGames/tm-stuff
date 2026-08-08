@@ -42,18 +42,21 @@ public class HostPortManager
         hostPorts.AddLast(new HostPort(ip, port, htcsPort, htcsPeer));
     }
 
-    public async Task<int> ConnectAsync(Socket sock, SockAddrHtcs addr)
+    public async Task ConnectAsync(Socket sock, SockAddrHtcs addr)
     {
         /* Find the port. */
         HostPort? port = this.FindPortByName(addr.portName);
         if (port == null)
         {
-            return -1;
+            throw new HtcsException(ErrorCode.HTCS_EADDRNOTAVAIL);
         }
 
         /* Try to connect to the host port. */
         await sock.ConnectAsync(new IPEndPoint(port.hostIp, port.hostTcpPort));
+    }
 
-        return 0;
+    public bool DoesPortNameExist(string portName)
+    {
+        return this.FindPortByName(portName) != null;
     }
 }

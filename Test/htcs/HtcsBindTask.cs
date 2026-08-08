@@ -25,7 +25,17 @@ public class HtcsBindTask : ServiceTask
             "\tPeer Name: {2}", fd, addr.portName, addr.peerName);
 
         /* Bind the socket. */
-        int retval = htcsManager.Bind(fd, addr);
+        Int32 result = 0;
+        Int32 retval = 0;
+        try
+        {
+            htcsManager.Bind(fd, addr);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
 
         Console.WriteLine("[htcs] Bind res = {0}", retval);
 
@@ -33,7 +43,6 @@ public class HtcsBindTask : ServiceTask
         var reply = this.AllocSendPacket();
 
         /* Setup our reply. */
-        Int32 result = retval < 0 ? 0 : 1; // TODO
         reply.serviceId = this.parent.GetServiceId();
         reply.taskId = this.taskId;
         reply.taskType = this.type;

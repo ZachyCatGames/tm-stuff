@@ -19,8 +19,18 @@ public class HtcsCloseTask : ServiceTask
 
         Console.WriteLine("[htcs] Close on fd={0}", fd);
 
-        /* Bind the socket. */
-        int retval = htcsManager.CloseSocket(fd);
+        /* Close the socket. */
+        Int32 result = 0;
+        Int32 retval = 0;
+        try
+        {
+            htcsManager.CloseSocket(fd);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
 
         Console.WriteLine("[htcs] Close res = {0}", retval);
 
@@ -28,7 +38,6 @@ public class HtcsCloseTask : ServiceTask
         var reply = this.AllocSendPacket();
 
         /* Setup our reply. */
-        Int32 result = retval < 0 ? 0 : 1; // TODO
         reply.serviceId = this.parent.GetServiceId();
         reply.taskId = this.taskId;
         reply.taskType = this.type;

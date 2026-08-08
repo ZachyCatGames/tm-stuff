@@ -21,13 +21,22 @@ public class HtcsListenTask : ServiceTask
         Console.WriteLine("[htcs] Listen on fd={0}", fd);
 
         /* Bind the socket. */
-        int retval = htcsManager.Listen(fd, backlogCount);
+        Int32 result = 0;
+        Int32 retval = 0;
+        try
+        {
+            htcsManager.Listen(fd, backlogCount);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
 
         /* Allocate a reply packet. */
         var reply = this.AllocSendPacket();
 
         /* Setup our reply. */
-        Int32 result = retval < 0 ? 0 : 1; // TODO
         reply.serviceId = this.parent.GetServiceId();
         reply.taskId = this.taskId;
         reply.taskType = this.type;

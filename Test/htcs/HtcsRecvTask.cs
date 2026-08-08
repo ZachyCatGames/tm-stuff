@@ -30,9 +30,19 @@ public class HtcsRecvTask : ServiceTask
             var buf = reply.GetDataBuffer(0xD, (int)curSize);
 
             /* Receive a packet from the host socket. */
-            int retval = await htcsManager.RecvPacketAsync(fd, buf, flags);
+            Int32 result = 0;
+            Int32 retval = 0;
+            try
+            {
+                retval = await htcsManager.RecvPacketAsync(fd, buf, flags);;
+            }
+            catch (HtcsException excpt)
+            {
+                result = ResultConversion.HtcsToTmipc(excpt.error);
+                retval = -1;
+            }
 
-            int readSize, errorRetCode, result;
+            Int32 readSize, errorRetCode;
             if (retval < 0)
             {
                 readSize = 0;

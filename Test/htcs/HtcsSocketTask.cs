@@ -18,11 +18,19 @@ public class HtcsSocketTask : ServiceTask
         pkt.Release();
 
         Console.WriteLine("[htcs] CreateSocket");
-        /* Create a new socket. */
-        int newFd = htcsManager.CreateSocket();
-        Console.WriteLine("[htcs] CreateSocket fd={0}", newFd);
 
-        Int32 result = newFd < 0 ? 1 : 0; // TODO
+        /* Create a new socket. */
+        Int32 result = 0;
+        Int32 newFd = -1;
+        try
+        {
+            newFd = htcsManager.CreateSocket();
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+        }
+        Console.WriteLine("[htcs] CreateSocket fd={0}", newFd);
 
         /* Allocate a reply packet. */
         var reply = this.AllocSendPacket();

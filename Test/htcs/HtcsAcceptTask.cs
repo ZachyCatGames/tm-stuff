@@ -19,10 +19,19 @@ public class HtcsAcceptTask : ServiceTask
 
         Console.WriteLine("[htcs] Accept on fd={0}", fd);
 
-        /* Bind the socket. */
-        var ret = await htcsManager.AcceptAsync(fd);
-        var retval = ret.Item1;
-        var addr = ret.Item2;
+        /* Accept the socket. */
+        Int32 result = 0;
+        Int32 retval = 0;
+        SockAddrHtcs? addr = null;
+        try
+        {
+            addr = await htcsManager.AcceptAsync(fd);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
 
         Console.WriteLine("[htcs] Accept res={0}", retval);
 
@@ -42,7 +51,6 @@ public class HtcsAcceptTask : ServiceTask
         Console.WriteLine("Fucker");
 
         /* Setup our reply. */
-        Int32 result = retval < 0 ? 0 : 1; // TODO
         reply.serviceId = this.parent.GetServiceId();
         reply.taskId = this.taskId;
         reply.taskType = this.type;

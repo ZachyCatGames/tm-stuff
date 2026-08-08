@@ -24,7 +24,17 @@ public class HtcsSendTask : ServiceTask
         var buf = pkt.GetDataBuffer(0xD, size);
 
         /* Send the packet to the host socket. */
-        int retval = await htcsManager.SendPacketAsync(fd, buf, flags);
+        Int32 result = 0;
+        Int32 retval = 0;
+        try
+        {
+            retval = await htcsManager.SendPacketAsync(fd, buf, flags);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
 
         /* Increment sent count. */
         this.sentSoFar += retval;
@@ -32,20 +42,16 @@ public class HtcsSendTask : ServiceTask
         /* End if this is the final packet or we hit an error. */
         if (last || retval < 0)
         {
-            int errorRetCode, result;
-
             /* Error? */
+            int errorRetCode;
             if (retval < 0)
             {
-                // TODO: Determine proper result code
                 errorRetCode = -1;
-                result = 1;
                 this.sentSoFar = -1;
             }
             else
             {
                 errorRetCode = 0;
-                result = 0;
             }
 
             /* Allocate a packet for our response. */
