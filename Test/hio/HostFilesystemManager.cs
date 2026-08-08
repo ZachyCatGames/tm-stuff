@@ -1,6 +1,8 @@
 
 
 using System.Data.SqlTypes;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using Test.htcs;
 
@@ -58,7 +60,7 @@ public class HostFilesystemManager {
             }
         }
 
-        public async void ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+        public async Task ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
         {
             /* Cannot read past EoF. */
             if (fileOffs + readSize > this.GetFileSize())
@@ -68,7 +70,7 @@ public class HostFilesystemManager {
             await accessor.ReadAsync(buf, bufOffs, readSize);
         }
         
-        public async void WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+        public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
         {
             /* Cannot write past EoF unless in append mode. */
             if (fileOffs + readSize > this.GetFileSize() && !this.append)
@@ -86,7 +88,7 @@ public class HostFilesystemManager {
             accessor.SetLength(size);
         }
         
-        public Task FlushFile() {
+        public Task FlushFileAsync() {
             return accessor.FlushAsync();
         }
         
@@ -100,42 +102,83 @@ public class HostFilesystemManager {
         }
     }
     
+    // this doesn't hold a handle on directories which might have
+    // some implications on when / whether a directory can be deleted
+    // or w/e. idk if c# has a cross platform way of holding a dir handle
     class DirectoryItem : FsItem
     {
-        public DirectoryItem(string path, UInt32 mode) : base(DescriptorType.Directory, path) {
-            
+        readonly bool readFileInfo;
+        readonly bool readDirInfo;
+        readonly bool noFileSizes;
+        
+        // Assuming mode is fs DirOpenMode?
+        public DirectoryItem(string path, UInt32 mode) : base(DescriptorType.Directory, path)
+        {
+            readDirInfo  = (mode & 1) != 0;
+            readFileInfo = (mode & 2) != 0;
+            noFileSizes  = (mode & 4) != 0;
         }
         
-        public UInt64 GetDirectoryEntryCount()
+        public Int64 GetDirectoryEntryCount()
         {
+            // TODO: is there a more efficient way of doing this?
+            Int64 count = 0;
+            
+            /* Add files. */
+            if (readFileInfo)
+                count += Directory.GetFiles(path).Length;
+            if (readDirInfo)
+                count += Directory.GetDirectories(path).Length;
             throw new NotImplementedException();
         }
         
-        public LinkedList<HioDirectoryEntry> ReadDirectory()
+        public LinkedList<HioDirectoryEntry> ReadDirectory(int maxCount)
         {
             LinkedList<HioDirectoryEntry> entries = new();
+            
+            if (maxCount <= 0)
+                return entries;
 
             /* Iterate over directories. */
-            foreach (var dirName in Directory.EnumerateDirectories(this.path))
+            int count = 0;
+            if (readDirInfo)
             {
-                /* FS wants raw file / dir names, not paths. */
-                var info = new DirectoryInfo(dirName);
-                entries.AddLast(new HioDirectoryEntry(
-                    HioDirectoryEntryType.Directory,
-                    info.Name,
-                    info.GetFileSystemInfos().Length
-                ));
+                foreach (var dirName in Directory.EnumerateDirectories(this.path))
+                {
+                    /* Check if we've read the requested amount. */
+                    if (count == maxCount)
+                        break;
+                    
+                    /* FS wants raw file / dir names, not paths. */
+                    var info = new DirectoryInfo(dirName);
+                    entries.AddLast(new HioDirectoryEntry(
+                        HioDirectoryEntryType.Directory,
+                        info.Name,
+                        info.GetFileSystemInfos().Length
+                    ));
+                }
             }
             
             /* Iterate over files. */
-            foreach (var fileName in Directory.EnumerateFiles(this.path))
+            if (readFileInfo && count != maxCount)
             {
-                var info = new FileInfo(fileName);
-                entries.AddLast(new HioDirectoryEntry(
-                    HioDirectoryEntryType.File,
-                    info.Name,
-                    info.Length
-                ));
+                foreach (var fileName in Directory.EnumerateFiles(this.path))
+                {
+                    /* Check if we've read the requested amount. */
+                    if (count == maxCount)
+                        break;
+
+                    var info = new FileInfo(fileName);
+                    
+                    /* Zero file size if requested. */
+                    Int64 size = noFileSizes ? 0 : info.Length;
+                    
+                    entries.AddLast(new HioDirectoryEntry(
+                        HioDirectoryEntryType.File,
+                        info.Name,
+                        size
+                    ));
+                }
             }
                 
             return entries;
@@ -159,6 +202,22 @@ public class HostFilesystemManager {
     
     FileDescriptorManager<FsItem> fsItems = new(OpenFileCountMax);
     
+    FileItem GetFileItemOrThrowNotFound(int fd)
+    {
+        if (fd < OpenFileCountMax && fsItems[fd] is FsItem f && f.type == DescriptorType.File)
+            return (FileItem)f;
+
+        throw new HioException(HioErrorCode.InvalidFileDescriptor);
+    }
+    
+    DirectoryItem GetDirectoryItemOrThrowNotFound(int fd)
+    {
+        if (fd < OpenFileCountMax && fsItems[fd] is FsItem f && f.type == DescriptorType.Directory)
+            return (DirectoryItem)f;
+
+        throw new HioException(HioErrorCode.InvalidFileDescriptor);
+    }
+    
     public HostFilesystemManager() {}
     
     public Int64 OpenFile(string path, UInt32 mode) {
@@ -166,15 +225,60 @@ public class HostFilesystemManager {
         var file = new FileItem(path, mode);
         
         /* Register the file. */
-        return fsItems.RegisterNewT(file);
+        int fd = fsItems.RegisterNewT(file);
+        if (fd < 0)
+            throw new HioException(HioErrorCode.AllocationFailed);
+
+        return fd;
+    }
+    
+    public void CreateFile(string path, Int64 size)
+    {
+        if (this.FileExists(path))
+            throw new HioException(HioErrorCode.PathAlreadyExists);
+
+        try {
+            using (var f = File.Create(path))
+            {
+                f.SetLength(size);
+            }
+        }
+        catch (IOException)
+        {
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
+        catch (Exception)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     public bool FileExists(string path) {
-        return File.Exists(path);
+        try {
+            return File.Exists(path);
+        }
+        catch (IOException)
+        {
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
+        catch (Exception)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     public void DeleteFile(string path) {
-        File.Delete(path);
+        try {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
+        catch (Exception)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     public void RenameFile(string path1, string path2) {
@@ -193,6 +297,97 @@ public class HostFilesystemManager {
         return new FileTimeStamp(0,0,0);
     }
     
+    public Task ReadFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+    {
+        return GetFileItemOrThrowNotFound(fd).ReadFileAsync(buf, fileOffs, bufOffs, readSize);
+    }
     
+    public Task WriteFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+    {
+        return GetFileItemOrThrowNotFound(fd).WriteFileAsync(buf, fileOffs, bufOffs, readSize);
+    }
+    
+    public Int64 GetFileSize(int fd)
+    {
+        return GetFileItemOrThrowNotFound(fd).GetFileSize();   
+    }
+    
+    public void SetFileSize(int fd, Int64 size)
+    {
+        GetFileItemOrThrowNotFound(fd).SetFileSize(size);
+    }
+    
+    public Task FlushFileAsync(int fd)
+    {
+        return GetFileItemOrThrowNotFound(fd).FlushFileAsync();
+    }
+    
+    public void SetPriorityForFile(int fd, Int32 prio)
+    {
+        GetFileItemOrThrowNotFound(fd).SetPriorityForFile(prio);   
+    }
+    
+    public Int32 GetPriorityForFile(int fd)
+    {
+        return GetFileItemOrThrowNotFound(fd).GetPriorityForFile();
+    }
+    
+    public int OpenDirectory(string path, UInt32 mode)
+    {
+        /* Open the directory. */
+        var dir = new DirectoryItem(path, mode);
+        
+        /* Register the directory object. */
+        int fd = fsItems.RegisterNewT(dir);
+        if ( fd < 0)
+            throw new HioException(HioErrorCode.AllocationFailed);
+
+        return fd;
+    }
+    
+    public bool DirectoryExists(string path)
+    {
+        return Directory.Exists(path);
+    }
+    
+    public void CreateDirectory(string path)
+    {
+        if (this.DirectoryExists(path))
+            throw new HioException(HioErrorCode.PathAlreadyExists);
+        Directory.CreateDirectory(path);
+    }
+    
+    
+    public void DeleteDirectory(string path, bool recursive)
+    {
+        Directory.Delete(path, recursive);
+    }
+    
+    public void RenameDirectory(string path1, string path2)
+    {
+        // TODO: ordering?
+        //Directory.Move(path1, path2);
+        throw new NotImplementedException();
+    }
+    
+    public Int64 GetDirectoryEntryCount(int fd)
+    {
+        return GetDirectoryItemOrThrowNotFound(fd).GetDirectoryEntryCount();
+    }
+    
+    public LinkedList<HioDirectoryEntry> ReadDirectory(int fd, int maxCount)
+    {
+        return GetDirectoryItemOrThrowNotFound(fd).ReadDirectory(maxCount);
+    }
+    
+    public void SetPriorityForDirectory(int fd, Int32 prio)
+    {
+        GetDirectoryItemOrThrowNotFound(fd).SetPriorityForDirectory(prio);
+    }
+    
+    public Int32 GetPriorityForDirectory(int fd)
+    {
+        return GetDirectoryItemOrThrowNotFound(fd).GetPriorityForDirectory();
+    }
     
 }
