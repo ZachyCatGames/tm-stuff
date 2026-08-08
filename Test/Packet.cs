@@ -1,5 +1,7 @@
 namespace Test;
 using System.Collections.Concurrent;
+using System.Reflection;
+using System.Text;
 
 public class Packet
 {
@@ -67,6 +69,11 @@ public class Packet
     {
         bufferPos += amt;
     }
+    
+    public int GetRemainingSize()
+    {
+        return PacketMaxSize - bufferPos;
+    }
 
     public ArraySegment<byte> GetDataBuffer(int size)
     {
@@ -105,6 +112,18 @@ public class Packet
         BitConverter.GetBytes(v).CopyTo(buffer, bufferPos);
         bufferPos += 4;
     }
+    
+    public void Write(Int64 v)
+    {
+        BitConverter.GetBytes(v).CopyTo(buffer, bufferPos);
+        bufferPos += 8;
+    }
+
+    public void Write(UInt64 v)
+    {
+        BitConverter.GetBytes(v).CopyTo(buffer, bufferPos);
+        bufferPos += 8;
+    }
 
     public void Write(byte[] bytes)
     {
@@ -132,14 +151,26 @@ public class Packet
 
     public void Read(out Int64 v)
     {
-        v = BitConverter.ToInt32(buffer, bufferPos);
+        v = BitConverter.ToInt64(buffer, bufferPos);
         bufferPos += 8;
     }
 
     public void Read(out UInt64 v)
     {
-        v = BitConverter.ToUInt32(buffer, bufferPos);
+        v = BitConverter.ToUInt64(buffer, bufferPos);
         bufferPos += 8;
+    }
+    
+    public string ReadString(int maxLength)
+    {
+        /* Find terminator. */
+        int size = Util.FindNullTerminator(buffer, bufferPos, Math.Min(this.GetRemainingSize(), maxLength));
+
+        /* Actually convert the string. */
+        string str = Encoding.UTF8.GetString(buffer, bufferPos, size);
+
+        bufferPos += size + 1;
+        return str;
     }
 
     public ArraySegment<byte> Read(int c)
@@ -157,5 +188,6 @@ public class Packet
         Console.WriteLine("\tTaskType   = {0:X}", taskType);
         Console.WriteLine("\tIsInitiate = {0}", isInitiate);
         Console.WriteLine("\tDataSize   = {0:X08}", dataSize);
+        Console.WriteLine("{0}", BitConverter.ToString(buffer, HeaderSize, dataSize));
     }
 }
