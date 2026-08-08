@@ -153,10 +153,6 @@ public class HtcsSocketManager
 
     public HtcsSocketManager(HostPortManager hpm)
     {
-        for (int i = 0; i < SocketCountMax; i++)
-        {
-            sockets[i] = null;
-        }
         this.hostPortMgr = hpm;
     }
 

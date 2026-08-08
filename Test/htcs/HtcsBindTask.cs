@@ -56,7 +56,4 @@ public class HtcsBindTask : ServiceTask
         /* Send it off. */
         this.SendPacket(reply);
     }
-    
-
-
 }

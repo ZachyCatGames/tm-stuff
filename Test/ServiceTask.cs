@@ -51,7 +51,12 @@ public abstract class ServiceTask
 
     protected Packet AllocSendPacket()
     {
-        return this.GetManager().AllocSendPacket();
+        Packet pkt = this.GetManager().AllocSendPacket();
+        pkt.serviceId = this.parent.serviceId;
+        pkt.taskId = this.taskId;
+        pkt.taskType = this.type;
+        pkt.Reset();
+        return pkt;
     }
 
     protected Packet AllocRecvPacket()
