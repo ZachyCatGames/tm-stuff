@@ -16,6 +16,7 @@ public enum TaskType : ushort
     DeleteFile              = 0x0D,
     RenameFile              = 0x0E,
     GetIOType               = 0x0F,
+    
     DirectoryExists         = 0x10,
     OpenDirectory           = 0x11,
     GetDirectoryEntryCount  = 0x12,
@@ -39,5 +40,5 @@ public enum TaskType : ushort
     Fcntl                   = 0x23,
     GetVar                  = 0x29,
 
-    GetFileTimeStam         = 0x2B,
+    GetFileTimeStamp         = 0x2B,
 }
