@@ -20,6 +20,8 @@ public class HtcsRecvTask : ServiceTask
         /* Release the packet. */
         pkt.Release();
 
+        Console.WriteLine("[htcs] recv: size={0}", remaining);
+
         while (remaining > 0)
         {
             /* Allocate a send packet. */
@@ -34,10 +36,11 @@ public class HtcsRecvTask : ServiceTask
             Int32 retval = 0;
             try
             {
-                retval = await htcsManager.RecvPacketAsync(fd, buf, flags);;
+                retval = await htcsManager.RecvPacketAsync(fd, buf, flags);
             }
             catch (HtcsException excpt)
             {
+                Console.WriteLine(excpt.error);
                 result = ResultConversion.HtcsToTmipc(excpt.error);
                 retval = -1;
             }
@@ -64,7 +67,7 @@ public class HtcsRecvTask : ServiceTask
             reply.taskType = this.type;
             reply.isInitiate = false;
             reply.Reset();
-            reply.Write(fd);
+            reply.Write((Int32)curSize); // TODO: nonblocking
             reply.Write(errorRetCode);
             reply.Write(result);
             reply.Write(last);

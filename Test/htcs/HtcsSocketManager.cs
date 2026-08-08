@@ -54,8 +54,6 @@ public class HtcsSocketManager
         public bool isListening;
 
         Socket hostSocket;
-        Task hostAcceptTask;
-        SemaphoreSlim pendingAcceptNum;
 
         public TargetPort(int fd, SockAddrHtcs addr) : base(fd, addr)
         {
@@ -110,6 +108,7 @@ public class HtcsSocketManager
 
         public SessionSocket(int fd, SockAddrHtcs addr, Socket hostSock) : base(fd, addr)
         {
+            this.type = HtcsSocketType.Session;
             this.hostSocket = hostSock;
         }
 
@@ -120,6 +119,7 @@ public class HtcsSocketManager
                 return hostSocket.Receive(buf);
             }
             catch(SocketException excpt) {
+                Console.WriteLine(excpt.SocketErrorCode);
                 throw new HtcsException(excpt.SocketErrorCode);
             }
             catch(ObjectDisposedException excpt) {
@@ -273,7 +273,7 @@ public class HtcsSocketManager
         port.HostListen(backlogCount);
     }
 
-    public async Task<SockAddrHtcs> AcceptAsync(int fd)
+    public async Task<Tuple<int, SockAddrHtcs>> AcceptAsync(int fd)
     {
         /* Get the socket. */
         HtcsSocket? sockRaw = sockets[fd];
@@ -300,7 +300,7 @@ public class HtcsSocketManager
         /* Setup a session socket. */
         sockets[newFd] = new SessionSocket(newFd, port.GetAddress(), newHostSock);
 
-        return port.GetAddress();
+        return new (newFd, port.GetAddress());
     }
 
     public async Task ConnectAsync(int fd, SockAddrHtcs addr) {

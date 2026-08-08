@@ -25,7 +25,9 @@ public class HtcsAcceptTask : ServiceTask
         SockAddrHtcs? addr = null;
         try
         {
-            addr = await htcsManager.AcceptAsync(fd);
+            var ret = await htcsManager.AcceptAsync(fd);
+            addr = ret.Item2;
+            retval = ret.Item1;
         }
         catch (HtcsException excpt)
         {
