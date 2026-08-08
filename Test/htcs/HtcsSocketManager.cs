@@ -148,9 +148,7 @@ public class HtcsSocketManager
         }
     }
 
-    int curFileDescriptor;
-    readonly HtcsSocket?[] sockets = new HtcsSocket[SocketCountMax];
-
+    readonly FileDescriptorManager<HtcsSocket> sockets = new(SocketCountMax);
     readonly HostPortManager hostPortMgr;
 
     public HtcsSocketManager(HostPortManager hpm)
@@ -159,42 +157,17 @@ public class HtcsSocketManager
         {
             sockets[i] = null;
         }
-        curFileDescriptor = 1;
-
         this.hostPortMgr = hpm;
     }
 
     int AllocateFileDescriptor()
     {
-        for (int i = curFileDescriptor + 1; i != curFileDescriptor; i++)
-        {
-            if (i == SocketCountMax)
-            {
-                i = 0;
-            }
-
-            if (sockets[i] == null)
-            {
-                curFileDescriptor = i;
-                return i;
-            }
-        }
-
-        return -1;
+        return this.sockets.AllocateFileDescriptor();
     }
 
     TargetPort? FindPortByName(string portName)
     {
-        foreach (var sock in sockets)
-        {
-            if (sock is HtcsSocket s && s.portName == portName && s.type == HtcsSocketType.Port)
-            {
-                Console.WriteLine(String.Format("{0} {1}", portName, s.portName));
-                Console.WriteLine();
-                return (TargetPort)sock;
-            }
-        }
-        return null;
+        return (TargetPort?)this.sockets.FindIf((HtcsSocket sock) => sock.portName == portName && sock.type == HtcsSocketType.Port);
     }
 
     bool DoesPortNameExist(string portName) {
