@@ -17,25 +17,26 @@ public class UsbInterface
 
         writer = device.OpenEndpointWriter(WriteEndpointID.Ep01);
         reader = device.OpenEndpointReader(ReadEndpointID.Ep01);
+        
     }
 
-    public void Read(byte[] buf, int timeout, out int readSize)
+    public Error Read(byte[] buf, int timeout, out int readSize)
     {
-        reader.Read(buf, timeout, out readSize);
+        return reader.Read(buf, timeout, out readSize);
     }
 
-    public void Read(byte[] buf, int offs, int size, int timeout, out int readSize)
+    public Error Read(byte[] buf, int offs, int size, int timeout, out int readSize)
     {
-        reader.Read(buf, offs, size, timeout, out readSize);
+        return reader.Read(buf, offs, size, timeout, out readSize);
     }
 
-    public void Write(byte[] buf, int offs, int size, int timeout, out int writeSize)
+    public Error Write(byte[] buf, int offs, int size, int timeout, out int writeSize)
     {
-        writer.Write(buf, offs, size, timeout, out writeSize);
+        return writer.Write(buf, offs, size, timeout, out writeSize);
     }
 
-    public void Write(byte[] buf, int timeout, out int writeSize)
+    public Error Write(byte[] buf, int timeout, out int writeSize)
     {
-        writer.Write(buf, timeout, out writeSize);
+        return writer.Write(buf, timeout, out writeSize);
     }  
 }
