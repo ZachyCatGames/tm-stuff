@@ -24,7 +24,7 @@ public class HostIOReadTask : ServiceTask
         pkt.Read(out Int64 reamining);
         pkt.Release();
         
-        Console.WriteLine("[hio] Reading file, fd={0}", fd);
+        Console.WriteLine("[hio] ReadFile, fd={0}", fd);
 
         HioErrorCode err = HioErrorCode.SuccessContinue;
         while (reamining > 0 && err == HioErrorCode.SuccessContinue)

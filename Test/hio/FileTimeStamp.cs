@@ -8,9 +8,9 @@ public class FileTimeStamp {
     // I'm aware this is 0x18 bytes large, no idea how it's structured?
     // probably some standard nn shit
     
-    UInt64 v1;
-    UInt64 v2;
-    UInt64 v3;
+    public UInt64 v1;
+    public UInt64 v2;
+    public UInt64 v3;
     
     public FileTimeStamp(UInt64 v1, UInt64 v2, UInt64 v3) {
         this.v1 = v1;

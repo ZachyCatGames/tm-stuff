@@ -256,6 +256,9 @@ public class HostFilesystemManager {
     {
         if (this.FileExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
+        
+        if (size < 0)
+            throw new HioException(HioErrorCode.OutOfRange);
 
         try {
             using (var f = File.Create(path))
