@@ -6,9 +6,9 @@ namespace Test.hio;
 
 public class HostIOService : Service {
     public const uint ServiceId = 0x5FAE4D7E;
-    
+
     readonly HostFilesystemManager hostfsMgr;
-    
+
     public HostIOService(ServiceManager mgr, HostFilesystemManager hostfsMgr) : base(ServiceId, mgr)
     {
         this.hostfsMgr = hostfsMgr;

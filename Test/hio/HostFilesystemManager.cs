@@ -3,6 +3,7 @@
 using System.Data.SqlTypes;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Test.htcs;
 
@@ -34,21 +35,24 @@ public class HostFilesystemManager {
         readonly FileStream accessor;
         readonly bool append;
         
+        FileAccess amode;
+        
         // guess mode is FsOpenMode?
         public FileItem(string p, UInt32 mode) : base(DescriptorType.File, p) {
             /* Determine the access mode. */
-            int amode = 0;
+            int amodei = 0;
             if ((mode & 1) != 0)
-                amode |= (int)FileAccess.Read;
+                amodei |= (int)FileAccess.Read;
             if ((mode & 2) != 0)
-                amode |= (int)FileAccess.Write;
+                amodei |= (int)FileAccess.Write;
+            amode = (FileAccess)amodei;
                 
             /* Check for append mode. */
             this.append = (mode & 4) != 0;
 
             /* Open the file. */
             try {
-                this.accessor = File.Open(p, FileMode.Open, (FileAccess)amode);
+                this.accessor = File.Open(p, FileMode.Open, amode);
             }
             catch (FileNotFoundException)
             {
@@ -72,8 +76,23 @@ public class HostFilesystemManager {
             if (fileOffs + readSize > this.GetFileSize())
                 throw new HioException(HioErrorCode.OutOfRange);
             
-            accessor.Seek(fileOffs, SeekOrigin.Begin);
-            await accessor.ReadAsync(buf, bufOffs, readSize);
+            /* Can't read a write-only file. */
+            if (amode != FileAccess.Read && amode != FileAccess.ReadWrite)
+                throw new HioException(HioErrorCode.TargetLocked); // idk??
+            
+            try
+            {
+                accessor.Seek(fileOffs, SeekOrigin.Begin);
+                await accessor.ReadAsync(buf, bufOffs, readSize);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                throw new HioException(HioErrorCode.OutOfRange);
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new HioException(HioErrorCode.Unknown);
+            }
         }
         
         public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
@@ -81,9 +100,24 @@ public class HostFilesystemManager {
             /* Cannot write past EoF unless in append mode. */
             if (fileOffs + readSize > this.GetFileSize() && !this.append)
                 throw new HioException(HioErrorCode.OutOfRange);
+
+            /* Can't write a read-only file. */
+            if (amode != FileAccess.Write && amode != FileAccess.ReadWrite)
+                throw new HioException(HioErrorCode.TargetLocked); // idk??
             
-            accessor.Seek(fileOffs, SeekOrigin.Begin);
-            await accessor.WriteAsync(buf, bufOffs, readSize);
+            try
+            {
+                accessor.Seek(fileOffs, SeekOrigin.Begin);
+                await accessor.WriteAsync(buf, bufOffs, readSize);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                throw new HioException(HioErrorCode.OutOfRange);
+            }
+            catch (ObjectDisposedException)
+            {
+                throw new HioException(HioErrorCode.Unknown);
+            }
         }
         
         public Int64 GetFileSize() {
