@@ -2,6 +2,9 @@ Test/bin/*
 Test/obj/*
 Test/test/*
 Test/empty/*
+Test/testbin2.bin
+Test/testpart.img
+
 
 recv_*
 send_*

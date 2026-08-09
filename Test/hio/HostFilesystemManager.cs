@@ -262,6 +262,11 @@ public class HostFilesystemManager {
 
         throw new HioException(HioErrorCode.InvalidFileDescriptor);
     }
+
+    bool ItemExists(string path)
+    {
+        return FileExists(path) || DirectoryExists(path);
+    }
     
     public HostFilesystemManager() {}
     
@@ -288,7 +293,7 @@ public class HostFilesystemManager {
     
     public void CreateFile(string path, Int64 size)
     {
-        if (this.FileExists(path))
+        if (ItemExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
         
         if (size < 0)
@@ -302,6 +307,10 @@ public class HostFilesystemManager {
         }
         catch (IOException)
         {
+            /* This seems to get raised if the parent dir doesn't exist? */
+            if (!Directory.Exists(Path.GetDirectoryName(path)))
+                throw new HioException(HioErrorCode.PathNotFound);
+                
             throw new HioException(HioErrorCode.TargetLocked);
         }
         catch (Exception)
@@ -314,22 +323,23 @@ public class HostFilesystemManager {
         try {
             return File.Exists(path);
         }
-        catch (IOException)
-        {
-            throw new HioException(HioErrorCode.TargetLocked);
-        }
         catch (Exception)
         {
-            throw new HioException(HioErrorCode.PathNotFound);
+            return false;
         }
     }
     
     public void DeleteFile(string path) {
+        if (!FileExists(path))
+            throw new HioException(HioErrorCode.PathNotFound);
+        
         try {
             File.Delete(path);
         }
-        catch (IOException)
+        catch (IOException e)
         {
+            if (e is DirectoryNotFoundException || e is NotSupportedException || e is PathTooLongException)
+                throw new HioException(HioErrorCode.PathNotFound); 
             throw new HioException(HioErrorCode.TargetLocked);
         }
         catch (Exception)
@@ -343,12 +353,13 @@ public class HostFilesystemManager {
         {
             File.Move(src, dst);
         }
-        catch (IOException)
+        catch (IOException e)
         {
-            if (this.FileExists(dst) || this.DirectoryExists(dst))
-            {
+            if (e is FileNotFoundException || e is PathTooLongException || e is DirectoryNotFoundException || e is NotSupportedException)
+                throw new HioException(HioErrorCode.PathNotFound);
+            if (ItemExists(dst))
                 throw new HioException(HioErrorCode.PathAlreadyExists);
-            }
+            
             throw new HioException(HioErrorCode.TargetLocked);
         }
         catch (Exception)
@@ -409,7 +420,7 @@ public class HostFilesystemManager {
         
         /* Register the directory object. */
         int fd = fsItems.RegisterNewT(dir);
-        if ( fd < 0)
+        if (fd < 0)
             throw new HioException(HioErrorCode.AllocationFailed);
 
         return fd;
@@ -426,14 +437,26 @@ public class HostFilesystemManager {
     
     public bool DirectoryExists(string path)
     {
-        return Directory.Exists(path);
+        try {
+            return Directory.Exists(path);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
     
     public void CreateDirectory(string path)
     {
-        if (this.DirectoryExists(path))
+        if (ItemExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
-        Directory.CreateDirectory(path);
+        try {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception e)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     
@@ -465,7 +488,7 @@ public class HostFilesystemManager {
         }
         catch (IOException)
         {
-            if (this.FileExists(dst) || this.DirectoryExists(dst))
+            if (ItemExists(dst))
             {
                 throw new HioException(HioErrorCode.PathAlreadyExists);
             }
