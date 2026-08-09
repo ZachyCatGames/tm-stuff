@@ -24,9 +24,9 @@ public class HioDirectoryEntry {
         this.size = size;
     }
     
-    public void ToBytes(byte[] bs, int offs)
+    public int WriteTo(byte[] bs, int offs)
     {
-        
+        int outPos = 0;
         using (var ms = new MemoryStream(bs, offs, MaxPackedSize, true))
         {
             using (var writer = new BinaryWriter(ms))
@@ -35,7 +35,9 @@ public class HioDirectoryEntry {
                 writer.Write(Encoding.UTF8.GetBytes(name));
                 writer.Write((byte)0); // terminator
                 writer.Write(size);
+                outPos = (int)ms.Position;
             }
         }
+        return outPos;
     }
 }
