@@ -1,10 +1,12 @@
 ﻿
+using System.Text;
 using System.Threading;
 using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 using Test;
+using Test.hio;
 using Test.htcs;
 using static System.Console;
 
@@ -43,13 +45,12 @@ for (int i = 0; i < 5; i++)
     //await tsks[i];
 }
 
+
 Console.WriteLine("All Finished");
 //return;
 
 // See https://aka.ms/new-console-template for more information
 Console.WriteLine("Hello, World!");
-
-
 
 const int productId = 0x3000;
 const int vendorId = 0x57E;
@@ -75,16 +76,26 @@ foreach (var c in selectedDevice.Configs[0].Interfaces)
     Console.WriteLine(c.ToString());
 }
 
+/* Create services manager. */
 var serviceMgr = new ServiceManager();
 
+/* Initialize USB Interface. */
 var usbif = new UsbInterface(selectedDevice);
 var pktMgr = new UsbPacketManager(usbif, serviceMgr);
 
+/* Initialize services manager. */
 serviceMgr.SetPacketManager(pktMgr);
+
+/* Initialize host fs manager. */
+HostFilesystemManager hostfsMgr = new();
+
+/* Initialize services. */
 serviceMgr.RegisterService(new HostHtcsService(serviceMgr, new HostPortManager()));
+serviceMgr.RegisterService(new HostIOService(serviceMgr, hostfsMgr));
+serviceMgr.RegisterService(new HostDirectoryIOService(serviceMgr, hostfsMgr));
 
+/* Send end connection packet. */
 var packet = serviceMgr.AllocRecvPacket();
-
 var hdr = new Test.PacketHeader(0x3a8ddd94, 0, 0, 0, 0);
 hdr.WriteTo(packet.GetBuffer());
 
@@ -96,6 +107,7 @@ usbif.Read(packet.GetBuffer(), 0, out int readSize);
 Console.WriteLine("Read response");
 packet.ParseHeader();
 
+/* Send start connection packet. */
 //byte[] initMagic = [0xB8, 0xD1, 0x5E, 0xCD];
 hdr = new Test.PacketHeader(0xCD5ED1B8, 0, 0, 0, 0);
 hdr.WriteTo(packet.GetBuffer());
@@ -108,6 +120,7 @@ usbif.Read(packet.GetBuffer(), 0, out int readSize2);
 Console.WriteLine("Read response");
 packet.ParseHeader();
 
+/* Print out beacon packet. */
 Console.WriteLine(System.Text.Encoding.ASCII.GetString(packet.GetBuffer()[0x20..(0x20+packet.dataSize)]));
 
 pktMgr.StartThreads();

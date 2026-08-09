@@ -59,6 +59,12 @@ public class HostFilesystemManager {
                 throw new HioException(HioErrorCode.PathNotFound);
             }
         }
+        
+        public void Close()
+        {
+            /* Destroy the stream. */
+            accessor.Dispose();
+        }
 
         public async Task ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
         {
@@ -117,6 +123,11 @@ public class HostFilesystemManager {
             readDirInfo  = (mode & 1) != 0;
             readFileInfo = (mode & 2) != 0;
             noFileSizes  = (mode & 4) != 0;
+        }
+
+        public void Close()
+        {
+            /* idt anything needs to be done? */
         }
         
         public Int64 GetDirectoryEntryCount()
@@ -232,6 +243,15 @@ public class HostFilesystemManager {
         return fd;
     }
     
+    public void CloseFile(int fd)
+    {
+        /* Close the file. */
+        GetFileItemOrThrowNotFound(fd).Close();
+        
+        /* Remove from the descriptor list. */
+        fsItems[fd] = null;
+    }
+    
     public void CreateFile(string path, Int64 size)
     {
         if (this.FileExists(path))
@@ -345,6 +365,15 @@ public class HostFilesystemManager {
         return fd;
     }
     
+    public void CloseDirectory(int fd)
+    {
+        /* Close the directory. */
+        GetDirectoryItemOrThrowNotFound(fd).Close();
+        
+        /* Remove from the descriptor list. */
+        fsItems[fd] = null;
+    }
+    
     public bool DirectoryExists(string path)
     {
         return Directory.Exists(path);
@@ -360,7 +389,22 @@ public class HostFilesystemManager {
     
     public void DeleteDirectory(string path, bool recursive)
     {
-        Directory.Delete(path, recursive);
+        try
+        {
+            Directory.Delete(path, recursive);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
+        catch (IOException)
+        {
+            /* Check if the directory is emtpy. */
+            if (!recursive && Directory.EnumerateFileSystemEntries(path).GetEnumerator().MoveNext())
+                throw new HioException(HioErrorCode.DirectoryNotEmpty);
+
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
     }
     
     public void RenameDirectory(string path1, string path2)
