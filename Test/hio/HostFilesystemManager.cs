@@ -301,10 +301,23 @@ public class HostFilesystemManager {
         }
     }
     
-    public void RenameFile(string path1, string path2) {
-        // TODO: ordering?
-        //File.Move(path1, path2);
-        throw new NotImplementedException();
+    public void RenameFile(string src, string dst) {
+        try
+        {
+            File.Move(src, dst);
+        }
+        catch (IOException)
+        {
+            if (this.FileExists(dst) || this.DirectoryExists(dst))
+            {
+                throw new HioException(HioErrorCode.PathAlreadyExists);
+            }
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
+        catch (Exception)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     public UInt32 GetIOType(string path) {
@@ -407,11 +420,24 @@ public class HostFilesystemManager {
         }
     }
     
-    public void RenameDirectory(string path1, string path2)
+    public void RenameDirectory(string src, string dst)
     {
-        // TODO: ordering?
-        //Directory.Move(path1, path2);
-        throw new NotImplementedException();
+        try
+        {
+            Directory.Move(src, dst);
+        }
+        catch (IOException)
+        {
+            if (this.FileExists(dst) || this.DirectoryExists(dst))
+            {
+                throw new HioException(HioErrorCode.PathAlreadyExists);
+            }
+            throw new HioException(HioErrorCode.TargetLocked);
+        }
+        catch (Exception)
+        {
+            throw new HioException(HioErrorCode.PathNotFound);
+        }
     }
     
     public Int64 GetDirectoryEntryCount(int fd)

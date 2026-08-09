@@ -20,12 +20,13 @@ public enum HioErrorCode {
     TargetLocked            = 15,
     Unknown16               = 16,
     UsableSpaceNotEnough    = 17,
-    
+
     /* Unofficial extensions. */
     /* Official tma will convert these to a default result, */
     /* which is _fine_. */
-    /* I mostly have these for clariy on the manager end. */
+    /* I mostly have these for clarity on the manager end. */
     InvalidFileDescriptor   = 100,
     Unknown                 = 101,
+    NotImplemented          = 102,
 }
     
