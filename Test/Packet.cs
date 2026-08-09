@@ -9,7 +9,7 @@ public class Packet
     public const int DataMaxSize = 0xE000;
     public const int PacketMaxSize = HeaderSize + DataMaxSize;
 
-    BlockingCollection<Packet> sourceQueue;
+    readonly PacketQueue sourceQueue;
 
     byte[] buffer;
     ArraySegment<byte> headerBuffer;
@@ -23,7 +23,7 @@ public class Packet
     public int dataSize { get; private set; }
 
 
-    public Packet(BlockingCollection<Packet> srcQ)
+    public Packet(PacketQueue srcQ)
     {
         sourceQueue = srcQ;
         this.buffer  = new byte[PacketMaxSize];
@@ -54,6 +54,7 @@ public class Packet
         hdr.WriteTo(buffer);
     }
 
+    // NOTE: AsyncRelease shouldn't ever be needed
     public void Release()
     {
         /* Release ourself to our source queue. */

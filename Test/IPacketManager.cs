@@ -8,5 +8,6 @@ namespace Test;
 
 public interface IPacketManager
 {
-    void SendPacket(Packet pkt);
+    public void SendPacket(Packet pkt);
+    public Task SendPacketAsync(Packet pkt);
 }

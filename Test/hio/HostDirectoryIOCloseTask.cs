@@ -6,7 +6,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOCloseTask(Service parent, HostFilesystemManager hostfsMgr, uint taskId) : base(parent, parent.serviceId, TaskType.CloseDirectory, taskId, 0)
+    public HostDirectoryIOCloseTask(Service parent, HostFilesystemManager hostfsMgr, uint taskId) : base(parent, TaskType.CloseDirectory, taskId, 0)
     {
         mgr = hostfsMgr;
     }
@@ -14,7 +14,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
     protected override async Task Run()
     {
         /* Get packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -33,7 +33,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
         }
         
         /* Allocate a reply packet. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         
         /* Setup the reply. */
         reply.isInitiate = false;
@@ -43,6 +43,6 @@ public class HostDirectoryIOCloseTask : ServiceTask
         reply.WriteHeader();
         
         /* Send it. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

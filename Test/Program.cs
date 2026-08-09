@@ -84,7 +84,7 @@ var usbif = new UsbInterface(selectedDevice);
 var pktMgr = new UsbPacketManager(usbif, serviceMgr);
 
 /* Initialize services manager. */
-serviceMgr.SetPacketManager(pktMgr);
+serviceMgr.Init(pktMgr);
 
 /* Initialize host fs manager. */
 HostFilesystemManager hostfsMgr = new();
@@ -124,7 +124,6 @@ packet.ParseHeader();
 Console.WriteLine(System.Text.Encoding.ASCII.GetString(packet.GetBuffer()[0x20..(0x20+packet.dataSize)]));
 
 pktMgr.StartThreads();
-serviceMgr.Init();
 
 /*
 var packet = new Packet();

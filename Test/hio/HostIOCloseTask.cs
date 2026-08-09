@@ -6,7 +6,7 @@ class HostIOCloseTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOCloseTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.CloseFile, taskId, 0)
+    public HostIOCloseTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CloseFile, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ class HostIOCloseTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -32,7 +32,7 @@ class HostIOCloseTask : ServiceTask
         }
         
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)result);
@@ -41,6 +41,6 @@ class HostIOCloseTask : ServiceTask
         reply.Print();
         
         /* Send it. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

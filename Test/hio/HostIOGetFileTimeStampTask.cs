@@ -6,7 +6,7 @@ public class HostIOGetFileTimeStampTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOGetFileTimeStampTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.GetFileTimeStamp, taskId, 0)
+    public HostIOGetFileTimeStampTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetFileTimeStamp, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostIOGetFileTimeStampTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -36,7 +36,7 @@ public class HostIOGetFileTimeStampTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -47,6 +47,6 @@ public class HostIOGetFileTimeStampTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

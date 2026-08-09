@@ -5,7 +5,7 @@ public class HtcsSendTask : ServiceTask
     Int32 sentSoFar;
     HtcsSocketManager htcsManager;
 
-    public HtcsSendTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Send, taskId, 0)
+    public HtcsSendTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Send, taskId, 0)
     {
         this.htcsManager = manager;
     }
@@ -55,21 +55,17 @@ public class HtcsSendTask : ServiceTask
             }
 
             /* Allocate a packet for our response. */
-            Packet reply = this.AllocSendPacket();
+            Packet reply = await AllocSendPacketAsync();
 
             /* Setup the packet. */
-            reply.serviceId = parent.GetServiceId();
-            reply.taskId = this.taskId;
-            reply.taskType = this.type;
             reply.isInitiate = false;
-            reply.Reset();
             reply.Write(this.sentSoFar);
             reply.Write(result);
             reply.Write(errorRetCode);
             reply.WriteHeader();
 
             /* Send the packet to the device. */
-            this.SendPacket(reply);
+            await SendPacketAsync(reply);
 
             return true;
         }

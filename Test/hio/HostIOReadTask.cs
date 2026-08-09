@@ -8,7 +8,7 @@ public class HostIOReadTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.ReadFile, taskId, 0)
+    public HostIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadFile, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -16,7 +16,7 @@ public class HostIOReadTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -30,7 +30,7 @@ public class HostIOReadTask : ServiceTask
         while (reamining > 0 && err == HioErrorCode.SuccessContinue)
         {
             /* Allocate a send a packet. */
-            Packet reply = this.AllocSendPacket();
+            Packet reply = await AllocSendPacketAsync();
             reply.isInitiate = false;
             
             /* Determine how much we should read. */
@@ -70,7 +70,7 @@ public class HostIOReadTask : ServiceTask
             reply.Print();
         
             /* Send the reply. */
-            this.SendPacket(reply);
+            await SendPacketAsync(reply);
         }
     }
 }

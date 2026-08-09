@@ -8,7 +8,7 @@ public class UsbPacketManager : IPacketManager
     readonly Thread sendThread;
     readonly Thread recvThread;
 
-    readonly BlockingCollection<Packet> packetQueue = new(20);
+    readonly PacketQueue packetQueue = new(20);
 
     readonly ServiceManager serviceManager;
 
@@ -29,10 +29,15 @@ public class UsbPacketManager : IPacketManager
         recvThread.Start();
         Console.WriteLine("Started USB recv thread");
     }
-
+    
     public void SendPacket(Packet pkt)
     {
         packetQueue.Add(pkt);
+    }
+
+    public Task SendPacketAsync(Packet pkt)
+    {
+        return packetQueue.AddAsync(pkt);
     }
 
     int j =0;
@@ -70,7 +75,6 @@ public class UsbPacketManager : IPacketManager
     int i = 0;
     void RecvThread()
     {
-
         while (true)
         {
             /* Allocate a recv packet. */
@@ -87,7 +91,7 @@ public class UsbPacketManager : IPacketManager
             /* Send it to the ServiceManager. */
             //Console.WriteLine("Recv {0}", i);
             //File.Open(String.Format("recv_{0}", i++), FileMode.Create).Write(pkt.GetBuffer());
-            serviceManager.OnNewPacket(pkt);
+            serviceManager.OnRecvPacket(pkt);
         }
     }
 }

@@ -10,11 +10,6 @@ public abstract class Service(uint id, ServiceManager mgr)
         serviceManager.RegisterTask(task);
     }
 
-    public uint GetServiceId()
-    {
-        return serviceId;
-    }
-
     public void NotifyDone(ServiceTask task)
     {
         serviceManager.NotifyTaskDone(task);

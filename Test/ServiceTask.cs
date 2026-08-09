@@ -12,20 +12,19 @@ public abstract class ServiceTask
 
     protected readonly Service parent;
 
-    readonly SemaphoreSlim incomingPacketSignal;
-    Packet packet;
+    PacketQueue packets;
 
-    Task task;
+    public Task task;
 
-    public ServiceTask(Service par, uint sid, TaskType type, uint taskId, uint prio)
+    public ServiceTask(Service par, TaskType type, uint taskId, uint prio)
     {
         this.parent = par;
-        this.serviceId = sid;
+        this.serviceId = par.serviceId;
         this.type = type;
         this.state = TaskState.InProgress;
         this.taskId = taskId;
         this.priority = prio;
-        this.incomingPacketSignal = new(0, 1);
+        this.packets = new(20);
     }
 
     private async Task StartImplAsync()
@@ -37,7 +36,7 @@ public abstract class ServiceTask
         this.NotifyDone();
     }
 
-    public void StartImpl()
+    public virtual void StartImpl()
     {
         task = this.StartImplAsync();
     }
@@ -48,20 +47,41 @@ public abstract class ServiceTask
     {
         return parent.serviceManager;
     }
-
-    protected Packet AllocSendPacket()
+    
+    private void InitPacketImpl(Packet pkt)
     {
-        Packet pkt = this.GetManager().AllocSendPacket();
         pkt.serviceId = this.parent.serviceId;
         pkt.taskId = this.taskId;
         pkt.taskType = this.type;
         pkt.Reset();
+    }
+
+    protected Packet AllocSendPacket()
+    {
+        Packet pkt = GetManager().AllocSendPacket();
+        InitPacketImpl(pkt);
+        return pkt;
+    }
+
+    protected async Task<Packet> AllocSendPacketAsync()
+    {
+        Packet pkt = await GetManager().AllocSendPacketAsync();
+        InitPacketImpl(pkt);
         return pkt;
     }
 
     protected Packet AllocRecvPacket()
     {
-        return this.GetManager().AllocRecvPacket();
+        Packet pkt = GetManager().AllocRecvPacket();
+        InitPacketImpl(pkt);
+        return pkt;
+    }
+    
+    protected async Task<Packet> AllocRecvPacketAsync()
+    {
+        Packet pkt = await GetManager().AllocRecvPacketAsync();
+        InitPacketImpl(pkt);
+        return pkt;
     }
 
     protected void NotifyDone()
@@ -73,17 +93,20 @@ public abstract class ServiceTask
     {
         parent.serviceManager.SendPacket(pkt);
     }
-
-    public void SignalIncomingPacket(Packet pkt)
+    
+    protected Task SendPacketAsync(Packet pkt)
     {
-        packet = pkt;
-        incomingPacketSignal.Release();
+        return parent.serviceManager.SendPacketAsync(pkt);
+    }
+
+    public async Task SignalIncomingPacket(Packet pkt)
+    {
+        await packets.AddAsync(pkt);
     }
 
     protected async Task<Packet> WaitForPacket()
     {
-        await incomingPacketSignal.WaitAsync();
-        return packet;
+        return await packets.TakeAsync();
     }
 
 }

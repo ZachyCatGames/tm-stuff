@@ -6,7 +6,7 @@ public class HostIOCreateTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOCreateTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.CreateFile, taskId, 0)
+    public HostIOCreateTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CreateFile, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostIOCreateTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -36,7 +36,7 @@ public class HostIOCreateTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -45,6 +45,6 @@ public class HostIOCreateTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

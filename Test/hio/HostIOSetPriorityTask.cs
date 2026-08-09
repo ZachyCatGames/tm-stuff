@@ -6,7 +6,7 @@ public class HostIOSetPriorityTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOSetPriorityTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.SetPriorityForFile, taskId, 0)
+    public HostIOSetPriorityTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetPriorityForFile, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostIOSetPriorityTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -35,7 +35,7 @@ public class HostIOSetPriorityTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -44,6 +44,6 @@ public class HostIOSetPriorityTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

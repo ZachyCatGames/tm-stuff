@@ -6,7 +6,7 @@ public class HostDirectoryIOExistsTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOExistsTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.DirectoryExists, taskId, 0)
+    public HostDirectoryIOExistsTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.DirectoryExists, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostDirectoryIOExistsTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -36,7 +36,7 @@ public class HostDirectoryIOExistsTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -45,6 +45,6 @@ public class HostDirectoryIOExistsTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

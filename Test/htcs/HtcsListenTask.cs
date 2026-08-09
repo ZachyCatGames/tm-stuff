@@ -3,7 +3,7 @@ namespace Test.htcs;
 public class HtcsListenTask : ServiceTask
 {
     HtcsSocketManager htcsManager;
-    public HtcsListenTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Listen, taskId, 0)
+    public HtcsListenTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Listen, taskId, 0)
     {
         this.htcsManager = manager;
     }
@@ -11,7 +11,7 @@ public class HtcsListenTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int32 fd);
@@ -34,21 +34,17 @@ public class HtcsListenTask : ServiceTask
         }
 
         /* Allocate a reply packet. */
-        var reply = this.AllocSendPacket();
+        var reply = await AllocSendPacketAsync();
 
         /* Setup our reply. */
-        reply.serviceId = this.parent.GetServiceId();
-        reply.taskId = this.taskId;
-        reply.taskType = this.type;
         reply.isInitiate = false;
-        reply.Reset();
         reply.Write(fd); // I think these are the same?
         reply.Write(retval);
         reply.Write(result);
         reply.WriteHeader();
 
         /* Send it off. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 
 }

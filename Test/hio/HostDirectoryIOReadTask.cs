@@ -6,23 +6,23 @@ public class HostDirectoryIOReadTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.ReadDirectory, taskId, 0)
+    public HostDirectoryIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }
     
-    void SendErrorImpl(HioErrorCode err)
+    async void SendErrorImpl(HioErrorCode err)
     {
         Packet pkt = this.AllocRecvPacket();
         pkt.Write((Int32)err);
         pkt.WriteHeader();
-        this.SendPacket(pkt);
+        await SendPacketAsync(pkt);
     }
 
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -45,10 +45,10 @@ public class HostDirectoryIOReadTask : ServiceTask
         }
         
         foreach (var entry in entries) {
-            Packet reply = this.AllocSendPacket();
+            Packet reply = await AllocSendPacketAsync();
             reply.Write((Int32)0);
             reply.AdvancePosition(entry.WriteTo(reply.GetBuffer(), Packet.HeaderSize + 0x4));
-            this.SendPacket(reply);
+            await SendPacketAsync(reply);
         }
 
     }

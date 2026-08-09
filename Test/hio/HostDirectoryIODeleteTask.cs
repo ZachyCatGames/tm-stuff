@@ -6,7 +6,7 @@ public class HostDirectoryIODeleteTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIODeleteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.DeleteDirectory, taskId, 0)
+    public HostDirectoryIODeleteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.DeleteDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostDirectoryIODeleteTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -36,7 +36,7 @@ public class HostDirectoryIODeleteTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -45,6 +45,6 @@ public class HostDirectoryIODeleteTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

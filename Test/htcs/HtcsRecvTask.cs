@@ -3,7 +3,7 @@ namespace Test.htcs;
 public class HtcsRecvTask : ServiceTask
 {
     HtcsSocketManager htcsManager;
-    public HtcsRecvTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Recv, taskId, 0)
+    public HtcsRecvTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Recv, taskId, 0)
     {
         this.htcsManager = manager;
     }
@@ -11,7 +11,7 @@ public class HtcsRecvTask : ServiceTask
     async Task Process()
     {
         /* Receive info packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         pkt.Read(out int fd);
         pkt.Read(out Int64 remaining);
@@ -25,7 +25,7 @@ public class HtcsRecvTask : ServiceTask
         while (remaining > 0)
         {
             /* Allocate a send packet. */
-            var reply = this.AllocSendPacket();
+            var reply = await AllocSendPacketAsync();
 
             /* Get data buffer. */
             Int64 curSize = Math.Min(remaining, Packet.DataMaxSize - 0xD);
@@ -62,11 +62,7 @@ public class HtcsRecvTask : ServiceTask
             bool last = curSize == remaining;
 
             /* Setup the packet. */
-            reply.serviceId = this.parent.GetServiceId();
-            reply.taskId = this.taskId;
-            reply.taskType = this.type;
             reply.isInitiate = false;
-            reply.Reset();
             reply.Write((Int32)curSize); // TODO: nonblocking
             reply.Write(errorRetCode);
             reply.Write(result);
@@ -75,7 +71,7 @@ public class HtcsRecvTask : ServiceTask
             reply.WriteHeader();
 
             /* Send the packet to the device. */
-            this.SendPacket(reply);
+            await SendPacketAsync(reply);
 
             /* Decrement remaining. */
             remaining -= curSize;

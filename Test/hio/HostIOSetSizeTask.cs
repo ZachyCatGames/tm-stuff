@@ -6,7 +6,7 @@ public class HostIOSetSizeTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOSetSizeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.SetFileSize, taskId, 0)
+    public HostIOSetSizeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetFileSize, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostIOSetSizeTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -35,7 +35,7 @@ public class HostIOSetSizeTask : ServiceTask
         }
         
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -44,6 +44,6 @@ public class HostIOSetSizeTask : ServiceTask
         reply.Print();
         
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

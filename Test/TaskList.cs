@@ -4,11 +4,6 @@ public class TaskList
 {
     public const int PriorityLevelCount = 10;
 
-    public class NotFound : System.Exception
-    {
-
-    }
-
     List<ServiceTask>[] list;
     Lock listLock;
 

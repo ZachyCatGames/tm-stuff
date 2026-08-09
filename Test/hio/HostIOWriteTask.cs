@@ -8,7 +8,7 @@ public class HostIOWriteTask : ServiceTask
 {
     HostFilesystemManager mgr;
 
-    public HostIOWriteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.WriteFile, taskId, 0)
+    public HostIOWriteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.WriteFile, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -22,7 +22,7 @@ public class HostIOWriteTask : ServiceTask
         while (!done)
         {
             /* Get the packet. */
-            Packet pkt = await this.WaitForPacket();
+            Packet pkt = await WaitForPacket();
 
             /* Parse the packet. */
             pkt.Read(out Int64 fd);
@@ -66,7 +66,7 @@ public class HostIOWriteTask : ServiceTask
          * returned over the hipc interface, _shrugs_.
          * It's effectiely unused and this is my guess at its intent.
          */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(totalWritten); // unused
         reply.Write((Int32)err);
@@ -74,6 +74,6 @@ public class HostIOWriteTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

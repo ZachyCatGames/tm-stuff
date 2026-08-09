@@ -3,7 +3,7 @@ namespace Test.htcs;
 public class HtcsAcceptTask : ServiceTask
 {
     HtcsSocketManager htcsManager;
-    public HtcsAcceptTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, parent.GetServiceId(), TaskType.Accept, taskId, 0)
+    public HtcsAcceptTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Accept, taskId, 0)
     {
         this.htcsManager = manager;
     }
@@ -11,7 +11,7 @@ public class HtcsAcceptTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int32 fd);
@@ -38,7 +38,7 @@ public class HtcsAcceptTask : ServiceTask
         Console.WriteLine("[htcs] Accept res={0}", retval);
 
         /* Allocate a reply packet. */
-        var reply = this.AllocSendPacket();
+        var reply = await AllocSendPacketAsync();
 
         /* Address -> bytes. */
         byte[] addrBytes;
@@ -53,11 +53,7 @@ public class HtcsAcceptTask : ServiceTask
         Console.WriteLine("Fucker");
 
         /* Setup our reply. */
-        reply.serviceId = this.parent.GetServiceId();
-        reply.taskId = this.taskId;
-        reply.taskType = this.type;
         reply.isInitiate = false;
-        reply.Reset();
         reply.Write(fd); // I think these are the same?
         reply.Write(retval);
         reply.Write(result);
@@ -65,6 +61,6 @@ public class HtcsAcceptTask : ServiceTask
         reply.WriteHeader();
 
         /* Send it off. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

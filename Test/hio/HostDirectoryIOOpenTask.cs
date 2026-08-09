@@ -6,7 +6,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
 {
     readonly HostFilesystemManager mgr;
     
-    public HostDirectoryIOOpenTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.GetServiceId(), TaskType.OpenDirectory, taskId, 0)
+    public HostDirectoryIOOpenTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fdIn);
@@ -40,7 +40,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
         }
         
         /* Allocate a packet. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         
         /* Setup our reply. */
         reply.isInitiate = false;
@@ -53,6 +53,6 @@ public class HostDirectoryIOOpenTask : ServiceTask
         reply.Print();
 
         /* Send reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }

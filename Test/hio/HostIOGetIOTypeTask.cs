@@ -6,7 +6,7 @@ public class HostIOGetIOTypeTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOGetIOTypeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, parent.serviceId, TaskType.GetIOType, taskId, 0)
+    public HostIOGetIOTypeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetIOType, taskId, 0)
     {
         this.mgr = mgr;
     }
@@ -14,7 +14,7 @@ public class HostIOGetIOTypeTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet pkt = await this.WaitForPacket();
+        Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -43,7 +43,7 @@ public class HostIOGetIOTypeTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet reply = this.AllocSendPacket();
+        Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
@@ -52,6 +52,6 @@ public class HostIOGetIOTypeTask : ServiceTask
         reply.Print();
 
         /* Send the reply. */
-        this.SendPacket(reply);
+        await SendPacketAsync(reply);
     }
 }
