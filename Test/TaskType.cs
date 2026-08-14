@@ -38,6 +38,7 @@ public enum TaskType : ushort
     Send                    = 0x21,
     Shutdown                = 0x22,
     Fcntl                   = 0x23,
+
     GetVar                  = 0x29,
 
     GetFileTimeStamp         = 0x2B,

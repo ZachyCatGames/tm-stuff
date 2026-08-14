@@ -1,11 +1,13 @@
 ﻿
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 using Test;
+using Test.env;
 using Test.hio;
 using Test.htcs;
 using static System.Console;
@@ -47,7 +49,6 @@ for (int i = 0; i < 5; i++)
 
 Console.WriteLine("All Finished");
 //return;
-
 
 // See https://aka.ms/new-console-template for more information
 Console.WriteLine("Hello, World!");
@@ -93,6 +94,7 @@ HostFilesystemManager hostfsMgr = new();
 serviceMgr.RegisterService(new HostHtcsService(serviceMgr, new HostPortManager()));
 serviceMgr.RegisterService(new HostIOService(serviceMgr, hostfsMgr));
 serviceMgr.RegisterService(new HostDirectoryIOService(serviceMgr, hostfsMgr));
+serviceMgr.RegisterService(new HostEnvService(serviceMgr));
 
 /* Send end connection packet. */
 var packet = serviceMgr.AllocRecvPacket();
