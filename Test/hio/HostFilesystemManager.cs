@@ -5,6 +5,7 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using Test.htcs;
 
 namespace Test.hio;
@@ -240,12 +241,13 @@ public class HostFilesystemManager {
         }
         
     }
-        
-    
+
     // literally just making up some number here
     public const int OpenFileCountMax = 256;
     
     FileDescriptorManager<FsItem> fsItems = new(OpenFileCountMax);
+    Regex driveRegex = new Regex("^/[aA-zZ]:/");
+    Regex driveRegex2 = new Regex("^[aA-zZ]:/");
     
     FileItem GetFileItemOrThrowNotFound(int fd)
     {
@@ -267,12 +269,30 @@ public class HostFilesystemManager {
     {
         return FileExists(path) || DirectoryExists(path);
     }
+
+    string GetRealPath(string path)
+    {
+        /*
+         * On linux, pretend that all drives point at root.
+         * I might try doing some drive emulation bs at some point
+         * since linux and win have diff directory structures. But idk.
+         */
+        if (driveRegex.IsMatch(path))
+        {
+            return path.Substring(3);
+        }
+        else if (driveRegex2.IsMatch(path))
+        {
+            return path.Substring(2);
+        }
+        return path;
+    }
     
     public HostFilesystemManager() {}
     
     public Int64 OpenFile(string path, UInt32 mode) {
         /* Try to open the file. */
-        var file = new FileItem(path, mode);
+        var file = new FileItem(GetRealPath(path), mode);
         
         /* Register the file. */
         int fd = fsItems.RegisterNewT(file);
@@ -293,6 +313,7 @@ public class HostFilesystemManager {
     
     public void CreateFile(string path, Int64 size)
     {
+        path = GetRealPath(path);
         if (ItemExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
         
@@ -321,7 +342,7 @@ public class HostFilesystemManager {
     
     public bool FileExists(string path) {
         try {
-            return File.Exists(path);
+            return File.Exists(GetRealPath(path));
         }
         catch (Exception)
         {
@@ -330,6 +351,7 @@ public class HostFilesystemManager {
     }
     
     public void DeleteFile(string path) {
+        path = GetRealPath(path);
         if (!FileExists(path))
             throw new HioException(HioErrorCode.PathNotFound);
         
@@ -349,6 +371,8 @@ public class HostFilesystemManager {
     }
     
     public void RenameFile(string src, string dst) {
+        src = GetRealPath(src);
+        dst = GetRealPath(dst);
         try
         {
             File.Move(src, dst);
@@ -368,9 +392,11 @@ public class HostFilesystemManager {
         }
     }
     
-    public UInt32 GetIOType(string path) {
+    public Int32 GetIOType(string path) {
         // TODO: what is this / how does fs use it?
-        throw new NotImplementedException();
+        // OpenHostFileSystem uses this but doesn't seem to care
+        // what it returns?
+        return 0;
     }
     
     public FileTimeStamp GetFileTimeStamp(string path) {
@@ -416,7 +442,7 @@ public class HostFilesystemManager {
     public int OpenDirectory(string path, UInt32 mode)
     {
         /* Open the directory. */
-        var dir = new DirectoryItem(path, mode);
+        var dir = new DirectoryItem(GetRealPath(path), mode);
         
         /* Register the directory object. */
         int fd = fsItems.RegisterNewT(dir);
@@ -438,7 +464,7 @@ public class HostFilesystemManager {
     public bool DirectoryExists(string path)
     {
         try {
-            return Directory.Exists(path);
+            return Directory.Exists(GetRealPath(path));
         }
         catch (Exception)
         {
@@ -448,6 +474,7 @@ public class HostFilesystemManager {
     
     public void CreateDirectory(string path)
     {
+        path = GetRealPath(path);
         if (ItemExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
         try {
@@ -462,6 +489,7 @@ public class HostFilesystemManager {
     
     public void DeleteDirectory(string path, bool recursive)
     {
+        path = GetRealPath(path);
         try
         {
             Directory.Delete(path, recursive);
@@ -482,6 +510,8 @@ public class HostFilesystemManager {
     
     public void RenameDirectory(string src, string dst)
     {
+        src = GetRealPath(src);
+        dst = GetRealPath(dst);
         try
         {
             Directory.Move(src, dst);

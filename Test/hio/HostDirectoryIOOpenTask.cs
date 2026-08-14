@@ -15,13 +15,13 @@ public class HostDirectoryIOOpenTask : ServiceTask
     {
         /* Receive the packet. */
         Packet pkt = await WaitForPacket();
-        
+
         /* Parse the packet. */
         pkt.Read(out Int64 fdIn);
         string path = pkt.ReadString(0x301);
         pkt.Read(out UInt64 id);
         pkt.Read(out UInt32 flags);
-        
+
         /* Release the packet. */
         pkt.Release();
         

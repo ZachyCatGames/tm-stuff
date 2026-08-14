@@ -30,9 +30,12 @@ public class HostIOGetIOTypeTask : ServiceTask
          * FS tries to use it when an emtpy str is given to
          * OpenHostFileSystem, which is done by fs::MountHostRoot
          * in sdknso.
+         *
+         * NOTE 2: fs doesn't seem to care what this returns for 
+         * OpenHostFileSystem? Both for actual value and error code.
          */
         HioErrorCode err = HioErrorCode.SuccessEnd;
-        UInt32 ioType = 0;
+        Int32 ioType = 0;
         try
         {
             ioType = mgr.GetIOType(path);
@@ -40,6 +43,10 @@ public class HostIOGetIOTypeTask : ServiceTask
         catch (HioException excpt)
         {
             err = excpt.error;
+        }
+        catch (Exception excpt)
+        {
+            Console.WriteLine(excpt);
         }
 
         /* Setup a reply. */
