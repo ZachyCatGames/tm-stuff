@@ -2,6 +2,7 @@
 
 namespace Test.hio;
 
+// IO type == directory entry type
 public class HostIOGetIOTypeTask : ServiceTask
 {
     HostFilesystemManager mgr;
@@ -23,17 +24,7 @@ public class HostIOGetIOTypeTask : ServiceTask
 
         Console.WriteLine("[hio] GetIOType, fd={0}", fd);
 
-        /* Try to get the file's IO type. */
-        /* 
-         * NOTE: This just returns 0 atm.
-         * I need to look at fs to see what this does / means.
-         * FS tries to use it when an emtpy str is given to
-         * OpenHostFileSystem, which is done by fs::MountHostRoot
-         * in sdknso.
-         *
-         * NOTE 2: fs doesn't seem to care what this returns for 
-         * OpenHostFileSystem? Both for actual value and error code.
-         */
+        /* Try to get the path's entry type. */
         HioErrorCode err = HioErrorCode.SuccessEnd;
         Int32 ioType = 0;
         try
@@ -47,6 +38,12 @@ public class HostIOGetIOTypeTask : ServiceTask
         catch (Exception excpt)
         {
             Console.WriteLine(excpt);
+        }
+        
+        if (ioType == -1)
+        {
+            ioType = 0;
+            err = HioErrorCode.PathNotFound;
         }
 
         /* Setup a reply. */

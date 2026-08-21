@@ -389,11 +389,14 @@ public class HostFilesystemManager {
         }
     }
     
+    int k = -8;
     public Int32 GetIOType(string path) {
-        // TODO: what is this / how does fs use it?
-        // OpenHostFileSystem uses this but doesn't seem to care
-        // what it returns?
-        return 0;
+        path = GetRealPath(path);
+        if (Directory.Exists(path))
+            return 0;
+        if (File.Exists(path))
+            return 1;
+        return -1;
     }
     
     public FileTimeStamp GetFileTimeStamp(string path) {
