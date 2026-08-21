@@ -35,6 +35,10 @@ public class HostIOOpenTask : ServiceTask
         {
             err = excpt.error;
         }
+        catch (Exception excpt)
+        {
+            Console.WriteLine(excpt);
+        }
         
         /* Setup a reply. */
         Packet reply = await AllocSendPacketAsync();

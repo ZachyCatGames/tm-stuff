@@ -63,6 +63,10 @@ public class HostFilesystemManager {
             {
                 throw new HioException(HioErrorCode.PathNotFound);
             }
+            catch (IOException)
+            {
+                throw new HioException(HioErrorCode.TargetLocked);
+            }
         }
         
         public void Close()

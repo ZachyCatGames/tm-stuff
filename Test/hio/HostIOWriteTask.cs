@@ -71,7 +71,7 @@ public class HostIOWriteTask : ServiceTask
         reply.Write(totalWritten); // unused
         reply.Write((Int32)err);
         reply.WriteHeader();
-        reply.Print();
+        //reply.Print();
 
         /* Send the reply. */
         await SendPacketAsync(reply);

@@ -35,6 +35,10 @@ public class HtcsSendTask : ServiceTask
             result = ResultConversion.HtcsToTmipc(excpt.error);
             retval = -1;
         }
+        catch (Exception excpt)
+        {
+            Console.WriteLine(excpt);
+        }
 
         /* Increment sent count. */
         this.sentSoFar += retval;
@@ -81,11 +85,11 @@ public class HtcsSendTask : ServiceTask
             /* Wait for a packet. */
             Packet pkt = await this.WaitForPacket();
 
-            /* Release the packet. */
-            pkt.Release();
-
             /* Process the packet. */
             done = await this.ProcessImpl(pkt);
+            
+            /* Release the packet. */
+            pkt.Release();
         }
     }
 

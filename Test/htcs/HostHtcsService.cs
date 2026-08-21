@@ -16,6 +16,7 @@ public class HostHtcsService : Service
     {
         ServiceTask? task = null;
         Console.WriteLine("packet get");
+        pkt.Print();
         switch ((TaskType)pkt.taskType)
         {
             case TaskType.Socket:

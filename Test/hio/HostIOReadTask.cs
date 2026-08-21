@@ -55,9 +55,10 @@ public class HostIOReadTask : ServiceTask
             
             Console.WriteLine("Cringe");
             
-            /* Reduce remaining. */
+            /* Reduce remaining, advance offset. */
             reamining -= curSize;
-            
+            offset    += curSize;
+
             /* Send SuccessEnd if this is the final packet. */
             if (err == HioErrorCode.SuccessContinue && reamining <= 0)
                 err = HioErrorCode.SuccessEnd;
@@ -67,7 +68,7 @@ public class HostIOReadTask : ServiceTask
             reply.Write((Int32)err);
             reply.AdvancePosition(curSize);
             reply.WriteHeader();
-            reply.Print();
+            //reply.Print();
         
             /* Send the reply. */
             await SendPacketAsync(reply);

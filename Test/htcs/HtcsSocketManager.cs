@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Microsoft.VisualBasic;
 
 namespace Test.htcs;
 
@@ -116,13 +118,13 @@ public class HtcsSocketManager
         {
             try {
                 /* Receive buffer. */
-                return hostSocket.Receive(buf);
+                return await hostSocket.ReceiveAsync(buf);
             }
             catch(SocketException excpt) {
                 Console.WriteLine(excpt.SocketErrorCode);
                 throw new HtcsException(excpt.SocketErrorCode);
             }
-            catch(ObjectDisposedException excpt) {
+            catch(ObjectDisposedException) {
                 throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
             }
         }
@@ -131,12 +133,12 @@ public class HtcsSocketManager
         {
             try {
                 /* Send the buffer. */
-                return hostSocket.Send(buf);
+                return await hostSocket.SendAsync(buf);
             }
             catch(SocketException excpt) {
                 throw new HtcsException(excpt.SocketErrorCode);
             }
-            catch(ObjectDisposedException excpt) {
+            catch(ObjectDisposedException) {
                 throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
             }
         }
@@ -323,6 +325,6 @@ public class HtcsSocketManager
         var session = (SessionSocket)sockRaw;
 
         /* Wait for a packet. */
-        return await session.RecvAsync(buffer, flags);
+        return await session.SendAsync(buffer, flags);
     }
 }
