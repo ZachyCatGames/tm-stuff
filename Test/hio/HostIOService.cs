@@ -16,6 +16,7 @@ public class HostIOService : Service {
     
     public override ServiceTask? ProcessNewRequest(Packet pkt)
     {
+        Console.WriteLine("hio recv packet");
         pkt.Print();
         ServiceTask? task = null;
         switch (pkt.taskType) {

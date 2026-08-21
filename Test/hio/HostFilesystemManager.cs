@@ -34,8 +34,6 @@ public class HostFilesystemManager {
     class FileItem : FsItem
     {
         readonly FileStream accessor;
-        readonly bool append;
-        
         FileAccess amode;
         
         // guess mode is FsOpenMode?
@@ -47,9 +45,6 @@ public class HostFilesystemManager {
             if ((mode & 2) != 0)
                 amodei |= (int)FileAccess.Write;
             amode = (FileAccess)amodei;
-                
-            /* Check for append mode. */
-            this.append = (mode & 4) != 0;
 
             /* Open the file. */
             try {
@@ -102,14 +97,10 @@ public class HostFilesystemManager {
         
         public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
         {
-            /* Cannot write past EoF unless in append mode. */
-            if (fileOffs + readSize > this.GetFileSize() && !this.append)
-                throw new HioException(HioErrorCode.OutOfRange);
-
             /* Can't write a read-only file. */
             if (amode != FileAccess.Write && amode != FileAccess.ReadWrite)
                 throw new HioException(HioErrorCode.TargetLocked); // idk??
-            
+
             try
             {
                 accessor.Seek(fileOffs, SeekOrigin.Begin);
@@ -318,6 +309,7 @@ public class HostFilesystemManager {
     public void CreateFile(string path, Int64 size)
     {
         path = GetRealPath(path);
+        Console.WriteLine(path);
         if (ItemExists(path))
             throw new HioException(HioErrorCode.PathAlreadyExists);
         
@@ -330,12 +322,13 @@ public class HostFilesystemManager {
                 f.SetLength(size);
             }
         }
-        catch (IOException)
+        catch (IOException e)
         {
             /* This seems to get raised if the parent dir doesn't exist? */
             if (!Directory.Exists(Path.GetDirectoryName(path)))
                 throw new HioException(HioErrorCode.PathNotFound);
-                
+            Console.WriteLine(e);
+            Console.WriteLine(path);
             throw new HioException(HioErrorCode.TargetLocked);
         }
         catch (Exception)

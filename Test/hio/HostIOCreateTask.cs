@@ -33,6 +33,7 @@ public class HostIOCreateTask : ServiceTask
         catch (HioException excpt)
         {
             err = excpt.error;
+            Console.WriteLine(excpt);
         }
 
         /* Setup a reply. */

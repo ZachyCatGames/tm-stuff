@@ -36,7 +36,7 @@ public class HostIOWriteTask : ServiceTask
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.ReadFileAsync((int)fd, pkt.GetBuffer(), offset, Packet.HeaderSize + 0xD, size);
+                await mgr.WriteFileAsync((int)fd, pkt.GetBuffer(), offset, Packet.HeaderSize + 0xD, size);
             }
             catch (HioException excpt)
             {
@@ -71,7 +71,7 @@ public class HostIOWriteTask : ServiceTask
         reply.Write(totalWritten); // unused
         reply.Write((Int32)err);
         reply.WriteHeader();
-        //reply.Print();
+        reply.Print();
 
         /* Send the reply. */
         await SendPacketAsync(reply);
