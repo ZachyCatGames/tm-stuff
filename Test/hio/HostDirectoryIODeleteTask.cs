@@ -28,7 +28,7 @@ public class HostDirectoryIODeleteTask : ServiceTask
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try
         {
-            mgr.DeleteDirectory(path, recursive);
+            //mgr.DeleteDirectory(path, recursive);
         }
         catch (HioException excpt)
         {

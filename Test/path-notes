@@ -1,0 +1,8 @@
+/C:/whatever -> C:/whatever
+//whatever -> \\whatever
+/whatever -> whatever
+whatever -> fs calls GetIOType?
+/ -> .\
+
+"" -> fs calls GetIOType (it doesn't seem to care about the result?)? then same as above
+

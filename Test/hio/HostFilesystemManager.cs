@@ -522,6 +522,10 @@ public class HostFilesystemManager {
             {
                 throw new HioException(HioErrorCode.PathAlreadyExists);
             }
+            else if (ItemExists(src))
+            {
+                throw new HioException(HioErrorCode.PathNotFound);
+            }
             throw new HioException(HioErrorCode.TargetLocked);
         }
         catch (Exception)

@@ -10,6 +10,7 @@ using Test;
 using Test.env;
 using Test.hio;
 using Test.htcs;
+using Test.test;
 using static System.Console;
 
 async Task<int> SleepFunc()
@@ -95,6 +96,7 @@ serviceMgr.RegisterService(new HostHtcsService(serviceMgr, new HostPortManager()
 serviceMgr.RegisterService(new HostIOService(serviceMgr, hostfsMgr));
 serviceMgr.RegisterService(new HostDirectoryIOService(serviceMgr, hostfsMgr));
 serviceMgr.RegisterService(new HostEnvService(serviceMgr));
+serviceMgr.RegisterService(new ProxyService(0xDDDE6636, serviceMgr));
 
 /* Send end connection packet. */
 var packet = serviceMgr.AllocRecvPacket();

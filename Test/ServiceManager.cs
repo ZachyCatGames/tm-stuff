@@ -108,12 +108,12 @@ public class ServiceManager
             Packet pkt = await packetQueue.TakeAsync();
             
             /* Call impl on it. */
-            ProcessRecvPacketImpl(pkt);
+            await ProcessRecvPacketImpl(pkt);
         }
     }
 
     // called by PacketManager recv thread
-    public void ProcessRecvPacketImpl(Packet pkt)
+    public async Task ProcessRecvPacketImpl(Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();
@@ -130,8 +130,8 @@ public class ServiceManager
                 {
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {
-                        this.RegisterTask(task);
-                        task.SignalIncomingPacket(pkt);
+                        RegisterTask(task);
+                        await task.SignalIncomingPacket(pkt);
                         task.StartImpl();
                     }
                     else
@@ -150,7 +150,7 @@ public class ServiceManager
             /* Find the target service. */
             if (taskList.FindByTaskById(pkt.taskId) is ServiceTask task)
             {
-                task.SignalIncomingPacket(pkt);
+                await task.SignalIncomingPacket(pkt);
                 return;
             }
 

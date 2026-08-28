@@ -22,7 +22,7 @@ public class HostIORenameTask : ServiceTask
         string dst = pkt.ReadString(0x301);
         pkt.Release();
 
-        Console.WriteLine("[hio] RenameFile, fd={0}", fd);
+        Console.WriteLine("[hio] RenameFile, src={0}, dst={1}", src, dst);
 
         /* Try to rename the file. */
         HioErrorCode err = HioErrorCode.SuccessEnd;
