@@ -17,7 +17,9 @@ public class HtcsCloseTask : ServiceTask
         pkt.Read(out Int32 fd);
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Close on fd={0}", fd);
+#endif
 
         /* Close the socket. */
         Int32 result = 0;
@@ -32,7 +34,9 @@ public class HtcsCloseTask : ServiceTask
             retval = -1;
         }
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Close res = {0}", retval);
+#endif
 
         /* Allocate a reply packet. */
         var reply = await AllocSendPacketAsync();

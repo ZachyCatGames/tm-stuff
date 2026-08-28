@@ -20,7 +20,9 @@ public class HtcsRecvTask : ServiceTask
         /* Release the packet. */
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] recv: size={0}", remaining);
+#endif
 
         while (remaining > 0)
         {

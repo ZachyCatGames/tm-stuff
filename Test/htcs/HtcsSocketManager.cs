@@ -121,7 +121,7 @@ public class HtcsSocketManager
                 return await hostSocket.ReceiveAsync(buf);
             }
             catch(SocketException excpt) {
-                Console.WriteLine(excpt.SocketErrorCode);
+                //Console.WriteLine(excpt.SocketErrorCode);
                 throw new HtcsException(excpt.SocketErrorCode);
             }
             catch(ObjectDisposedException) {

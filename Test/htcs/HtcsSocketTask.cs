@@ -17,7 +17,9 @@ public class HtcsSocketTask : ServiceTask
         pkt.Read(out Int32 fd);
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] CreateSocket");
+#endif
 
         /* Create a new socket. */
         Int32 result = 0;
@@ -30,7 +32,9 @@ public class HtcsSocketTask : ServiceTask
         {
             result = ResultConversion.HtcsToTmipc(excpt.error);
         }
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] CreateSocket fd={0}", newFd);
+#endif
 
         /* Allocate a reply packet. */
         var reply = await AllocSendPacketAsync();

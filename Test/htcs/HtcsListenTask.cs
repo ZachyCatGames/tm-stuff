@@ -18,7 +18,9 @@ public class HtcsListenTask : ServiceTask
         pkt.Read(out Int32 backlogCount);
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Listen on fd={0}", fd);
+#endif
 
         /* Bind the socket. */
         Int32 result = 0;

@@ -20,9 +20,11 @@ public class HtcsBindTask : ServiceTask
         var addr = SockAddrHtcs.FromBytes(bs);
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Bind on fd={0}\n" +
             "\tPort Name: {1}\n" +
             "\tPeer Name: {2}", fd, addr.portName, addr.peerName);
+#endif
 
         /* Bind the socket. */
         Int32 result = 0;
@@ -37,7 +39,9 @@ public class HtcsBindTask : ServiceTask
             retval = -1;
         }
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Bind res = {0}", retval);
+#endif
 
         /* Allocate a reply packet. */
         var reply = await AllocSendPacketAsync();

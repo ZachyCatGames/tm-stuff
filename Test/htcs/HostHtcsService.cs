@@ -15,8 +15,10 @@ public class HostHtcsService : Service
     public override ServiceTask? ProcessNewRequest(Packet pkt)
     {
         ServiceTask? task = null;
+#if HTCS_TASK_DEBUG
         Console.WriteLine("packet get");
         pkt.Print();
+#endif
         switch ((TaskType)pkt.taskType)
         {
             case TaskType.Socket:
