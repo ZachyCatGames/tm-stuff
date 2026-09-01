@@ -36,6 +36,13 @@ public class PacketQueue
         queue.Add(pkt);
         takeSem.Release();
     }
+
+    public async Task AddAsync(Packet pkt, CancellationToken can)
+    {
+        await addSem.WaitAsync(can);
+        queue.Add(pkt);
+        takeSem.Release();
+    }
     
     public Packet Take()
     {
@@ -48,7 +55,14 @@ public class PacketQueue
     public async Task<Packet> TakeAsync()
     {
         await takeSem.WaitAsync();
-        Console.WriteLine(queue.Count());
+        var it = queue.Take();
+        addSem.Release();
+        return it;
+    }
+
+    public async Task<Packet> TakeAsync(CancellationToken can)
+    {
+        await takeSem.WaitAsync(can);
         var it = queue.Take();
         addSem.Release();
         return it;

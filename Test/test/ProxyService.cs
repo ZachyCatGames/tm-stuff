@@ -54,7 +54,15 @@ public class ProxyService : Service
     {
         while (true)
         {
-            Packet pkt = await freePackets.TakeAsync();
+            try
+            {
+                Packet pkt = await freePackets.TakeAsync(cancelSrc.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            
             try {
                 int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.HeaderSize), cancelSrc.Token);
                 if (c == 0)
@@ -87,7 +95,16 @@ public class ProxyService : Service
     {
         while(true)
         {
-            Packet pkt = await sendPackets.TakeAsync();
+            Packet pkt;
+            try
+            {
+                pkt = await sendPackets.TakeAsync(cancelSrc.Token);
+            }
+            catch(OperationCanceledException)
+            {
+                return;
+            }
+            
             Console.WriteLine("Sending packet");
             try {
                 int c = await connection.SendAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.HeaderSize + pkt.dataSize));
@@ -122,6 +139,7 @@ public class ProxyService : Service
             var newConn = await sock.AcceptAsync();
             await cancelSrc.CancelAsync();
             await recvTask;
+            await 
             //await sendTask;
             connection.Close();
             connection = newConn;
