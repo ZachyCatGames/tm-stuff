@@ -38,7 +38,9 @@ public abstract class ServiceTask
 
     public virtual void StartImpl()
     {
+        Console.WriteLine("what");
         task = this.StartImplAsync();
+        Console.WriteLine("what2");
     }
 
     protected abstract Task Run();

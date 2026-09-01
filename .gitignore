@@ -4,6 +4,6 @@ Test/empty/*
 Test/testbin2.bin
 Test/testpart.img
 
-
+htc-stuff/*
 recv_*
 send_*

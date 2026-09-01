@@ -91,7 +91,7 @@ public class Packet
         return dataBuffer;
     }
 
-    public int GetDataSize()
+    public int GetWrittenDataSize()
     {
         return bufferPos - HeaderSize;
     }

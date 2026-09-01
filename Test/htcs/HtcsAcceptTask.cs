@@ -17,7 +17,9 @@ public class HtcsAcceptTask : ServiceTask
         pkt.Read(out Int32 fd);
         pkt.Release();
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Accept on fd={0}", fd);
+#endif
 
         /* Accept the socket. */
         Int32 result = 0;
@@ -35,7 +37,9 @@ public class HtcsAcceptTask : ServiceTask
             retval = -1;
         }
 
+#if HTCS_TASK_DEBUG
         Console.WriteLine("[htcs] Accept res={0}", retval);
+#endif
 
         /* Allocate a reply packet. */
         var reply = await AllocSendPacketAsync();
@@ -50,7 +54,6 @@ public class HtcsAcceptTask : ServiceTask
         {
             addrBytes = new byte[SockAddrHtcs.PackedSize];
         }
-        Console.WriteLine("Fucker");
 
         /* Setup our reply. */
         reply.isInitiate = false;

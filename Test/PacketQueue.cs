@@ -15,7 +15,12 @@ public class PacketQueue
     {
         queue = new(max);
         addSem = new(max);
-        takeSem = new(max);
+        takeSem = new(0);
+    }
+    
+    public int GetFreeCount()
+    {
+        return queue.Count();
     }
     
     public void Add(Packet pkt)
@@ -43,6 +48,7 @@ public class PacketQueue
     public async Task<Packet> TakeAsync()
     {
         await takeSem.WaitAsync();
+        Console.WriteLine(queue.Count());
         var it = queue.Take();
         addSem.Release();
         return it;

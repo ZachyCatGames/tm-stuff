@@ -47,7 +47,8 @@ public class UsbPacketManager : IPacketManager
         {
             /* Pop a packet. */
             Packet pkt = packetQueue.Take();
-            //File.Open(String.Format("send_{0}", j++), FileMode.Create).Write(pkt.GetBuffer());
+            //File.Open(String.Format("send_{0}", j), FileMode.Create).Write(pkt.GetBuffer());
+            //pkt.Print();
 
             /* First, send the header. */
             byte[] buf = pkt.GetBuffer();
@@ -57,10 +58,11 @@ public class UsbPacketManager : IPacketManager
                 Console.WriteLine("USB Write Error: {0}", err);
                 return;
             }
+            //Console.WriteLine("sendidx = {0}, {1} bytes", j++, pkt.dataSize);
 
             /* Then the data. */
             //Console.WriteLine(pkt.GetDataSize());
-            err = usbIf.Write(buf, Packet.HeaderSize, pkt.GetDataSize(), 0, out int dataSize);
+            err = usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, 0, out int dataSize);
             if (err != Error.Success)
             {
                 Console.WriteLine("USB Write Error: {0}", err);
