@@ -1,6 +1,7 @@
 
 
 using System.Data.SqlTypes;
+using Test.htcs;
 
 namespace Test.hio;
 
@@ -54,8 +55,11 @@ public class HostIOWriteTask : ServiceTask
             /* Release the packet. */
             pkt.Release();
 
+            if (atEnd)
+                err = HioErrorCode.SuccessEnd;
+
             /* Send SuccessEnd if this is the final packet. */
-            if (err == HioErrorCode.SuccessContinue || atEnd)
+            if (err != HioErrorCode.SuccessContinue || atEnd)
                 done = true;
         }
 
