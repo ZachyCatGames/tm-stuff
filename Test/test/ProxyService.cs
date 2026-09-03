@@ -54,9 +54,10 @@ public class ProxyService : Service
     {
         while (true)
         {
+            Packet pkt;
             try
             {
-                Packet pkt = await freePackets.TakeAsync(cancelSrc.Token);
+                pkt = await freePackets.TakeAsync(cancelSrc.Token);
             }
             catch (OperationCanceledException)
             {
@@ -64,13 +65,32 @@ public class ProxyService : Service
             }
             
             try {
-                int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.HeaderSize), cancelSrc.Token);
-                if (c == 0)
-                    return;
-                
+                int recvd = 0;
+                while (recvd < Packet.HeaderSize)
+                {
+                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), recvd, Packet.HeaderSize + recvd), cancelSrc.Token);
+                    if (c == 0)
+                    {
+                        return;
+                    }
+                    recvd += c;
+                }
+  
                 pkt.Reset();
                 pkt.ParseHeader();
-                await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), Packet.HeaderSize, pkt.dataSize), cancelSrc.Token);
+                Console.WriteLine("recv pkt size {0}, {1}", pkt.dataSize, new ArraySegment<byte>(pkt.GetBuffer(), Packet.HeaderSize, pkt.dataSize).Count);
+                
+                recvd = 0;
+                while (recvd < pkt.dataSize)
+                {
+                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), Packet.HeaderSize + recvd, pkt.dataSize - recvd), cancelSrc.Token);
+                    if (c == 0)
+                    {
+                        return;
+                    }
+                    recvd += c;
+                    Console.WriteLine("recvd {0} {1}", recvd, c);
+                }
             }
             catch(OperationCanceledException)
             {
@@ -139,7 +159,7 @@ public class ProxyService : Service
             var newConn = await sock.AcceptAsync();
             await cancelSrc.CancelAsync();
             await recvTask;
-            await 
+            await sendTask;
             //await sendTask;
             connection.Close();
             connection = newConn;
