@@ -48,7 +48,7 @@ public class HostFilesystemManager {
 
             /* Open the file. */
             try {
-                this.accessor = File.Open(p, FileMode.Open, amode);
+                this.accessor = File.Open(p, FileMode.Open, amode, FileShare.ReadWrite);
             }
             catch (FileNotFoundException)
             {
@@ -58,8 +58,9 @@ public class HostFilesystemManager {
             {
                 throw new HioException(HioErrorCode.PathNotFound);
             }
-            catch (IOException)
+            catch (IOException e)
             {
+                Console.WriteLine(e);
                 throw new HioException(HioErrorCode.TargetLocked);
             }
         }
@@ -267,6 +268,9 @@ public class HostFilesystemManager {
 
     string GetRealPath(string path)
     {
+        /* Linux doesn't like backslashes in paths (based). */
+        path = path.Replace('\\', '/');
+
         /*
          * On linux, pretend that all drives point at root.
          * I might try doing some drive emulation bs at some point
@@ -287,6 +291,7 @@ public class HostFilesystemManager {
     
     public Int64 OpenFile(string path, UInt32 mode) {
         /* Try to open the file. */
+        Console.WriteLine("{0} OpenFile", GetRealPath(path));
         var file = new FileItem(GetRealPath(path), mode);
         
         /* Register the file. */
