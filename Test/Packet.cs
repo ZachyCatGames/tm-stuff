@@ -76,6 +76,11 @@ public class Packet
         return PacketMaxSize - bufferPos;
     }
 
+    public ArraySegment<byte> GetHeaderBuffer()
+    {
+        return headerBuffer;
+    }
+
     public ArraySegment<byte> GetDataBuffer(int size)
     {
         return new ArraySegment<byte>(buffer, HeaderSize, size);

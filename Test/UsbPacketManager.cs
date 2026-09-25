@@ -22,7 +22,7 @@ public class UsbPacketManager : IPacketManager
         recvThread = new Thread(RecvThread);
     }
 
-    public void StartThreads()
+    public void Start()
     {
         sendThread.Start();
         Console.WriteLine("Started USB send thread");

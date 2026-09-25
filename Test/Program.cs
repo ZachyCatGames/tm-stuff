@@ -1,4 +1,6 @@
 ﻿
+using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -57,33 +59,41 @@ Console.WriteLine("Hello, World!");
 const int productId = 0x3000;
 const int vendorId = 0x57E;
 
-var usb = new UsbContext();
-
-// Get a list of connected devices
-var usbDevices = usb.List();
-
-// Find a device with the target PID & VID
-var selectedDevice = usbDevices.FirstOrDefault(d => d.ProductId == productId && d.VendorId == vendorId);
-
-// Open the device.
-selectedDevice.Open();
-
-foreach (var c in selectedDevice.Configs)
-{
-    Console.WriteLine(c.ToString());
-}
-
-foreach (var c in selectedDevice.Configs[0].Interfaces)
-{
-    Console.WriteLine(c.ToString());
-}
-
 /* Create services manager. */
 var serviceMgr = new ServiceManager();
 
-/* Initialize USB Interface. */
-var usbif = new UsbInterface(selectedDevice);
-var pktMgr = new UsbPacketManager(usbif, serviceMgr);
+/* Initialize Packet manager. */
+bool isUsb = false;
+IPacketManager pktMgr;
+UsbInterface? usbif = null;
+if (isUsb) {
+    var usb = new UsbContext();
+
+    // Get a list of connected devices
+    var usbDevices = usb.List();
+
+    // Find a device with the target PID & VID
+    var selectedDevice = usbDevices.FirstOrDefault(d => d.ProductId == productId && d.VendorId == vendorId);
+
+    // Open the device.
+    selectedDevice.Open();
+
+    foreach (var c in selectedDevice.Configs)
+    {
+        Console.WriteLine(c.ToString());
+    }
+
+    foreach (var c in selectedDevice.Configs[0].Interfaces)
+    {
+        Console.WriteLine(c.ToString());
+    }
+
+    usbif = new UsbInterface(selectedDevice);
+    pktMgr = new UsbPacketManager(usbif, serviceMgr);
+} else {
+    //0xA9FE0ACE
+    pktMgr = new TicsPacketManager(new IPEndPoint(0xCE0AFEA9, 8000), serviceMgr);
+}
 
 /* Initialize services manager. */
 serviceMgr.Init(pktMgr);
@@ -98,36 +108,38 @@ serviceMgr.RegisterService(new HostDirectoryIOService(serviceMgr, hostfsMgr));
 serviceMgr.RegisterService(new HostEnvService(serviceMgr));
 serviceMgr.RegisterService(new ProxyService(0xDDDE6636, serviceMgr));
 
-/* Send end connection packet. */
-var packet = serviceMgr.AllocRecvPacket();
-var hdr = new Test.PacketHeader(0x3a8ddd94, 0, 0, 0, 0);
-hdr.WriteTo(packet.GetBuffer());
+if (usbif != null && isUsb) {
+    /* Send end connection packet. */
+    var packet = serviceMgr.AllocRecvPacket();
+    var hdr = new Test.PacketHeader(0x3a8ddd94, 0, 0, 0, 0);
+    hdr.WriteTo(packet.GetBuffer());
 
-usbif.Write(packet.GetBuffer(), 0, 0x20, 0, out int writeHdrSize);
-Console.WriteLine("Sent header");
-//Console.WriteLine(BitConverter.ToString(hdr.ToBytes()));
+    usbif.Write(packet.GetBuffer(), 0, 0x20, 0, out int writeHdrSize);
+    Console.WriteLine("Sent header");
+    //Console.WriteLine(BitConverter.ToString(hdr.ToBytes()));
 
-usbif.Read(packet.GetBuffer(), 0, out int readSize);
-Console.WriteLine("Read response");
-packet.ParseHeader();
+    usbif.Read(packet.GetBuffer(), 0, out int readSize);
+    Console.WriteLine("Read response");
+    packet.ParseHeader();
 
-/* Send start connection packet. */
-//byte[] initMagic = [0xB8, 0xD1, 0x5E, 0xCD];
-hdr = new Test.PacketHeader(0xCD5ED1B8, 0, 0, 0, 0);
-hdr.WriteTo(packet.GetBuffer());
+    /* Send start connection packet. */
+    //byte[] initMagic = [0xB8, 0xD1, 0x5E, 0xCD];
+    hdr = new Test.PacketHeader(0xCD5ED1B8, 0, 0, 0, 0);
+    hdr.WriteTo(packet.GetBuffer());
 
-usbif.Write(packet.GetBuffer(), 0, 0x20, 0, out int writeHdrSize2);
-Console.WriteLine("Sent header");
-//Console.WriteLine(BitConverter.ToString(hdr.ToBytes()));
+    usbif.Write(packet.GetBuffer(), 0, 0x20, 0, out int writeHdrSize2);
+    Console.WriteLine("Sent header");
+    //Console.WriteLine(BitConverter.ToString(hdr.ToBytes()));
 
-usbif.Read(packet.GetBuffer(), 0, out int readSize2);
-Console.WriteLine("Read response");
-packet.ParseHeader();
+    usbif.Read(packet.GetBuffer(), 0, out int readSize2);
+    Console.WriteLine("Read response");
+    packet.ParseHeader();
 
-/* Print out beacon packet. */
-Console.WriteLine(System.Text.Encoding.ASCII.GetString(packet.GetBuffer()[0x20..(0x20+packet.dataSize)]));
+    /* Print out beacon packet. */
+    Console.WriteLine(System.Text.Encoding.ASCII.GetString(packet.GetBuffer()[0x20..(0x20+packet.dataSize)]));
+}
 
-pktMgr.StartThreads();
+pktMgr.Start();
 
 /*
 var packet = new Packet();

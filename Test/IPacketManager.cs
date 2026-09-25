@@ -10,4 +10,6 @@ public interface IPacketManager
 {
     public void SendPacket(Packet pkt);
     public Task SendPacketAsync(Packet pkt);
+
+    public void Start();
 }

@@ -99,7 +99,9 @@ public class ProxyService : Service
             }
             catch (Exception e)
             {
+                pkt.Release();
                 Console.WriteLine(e);
+                return;
             }
             pkt.Print();
             
@@ -109,7 +111,7 @@ public class ProxyService : Service
             await serviceManager.SendPacketAsync(pkt);
         }
     }
-    
+
     // recv from console
     async Task SendWorker(Socket connection)
     {
@@ -124,7 +126,7 @@ public class ProxyService : Service
             {
                 return;
             }
-            
+
             Console.WriteLine("Sending packet");
             try {
                 int c = await connection.SendAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.HeaderSize + pkt.dataSize));
@@ -133,6 +135,12 @@ public class ProxyService : Service
             }
             catch(OperationCanceledException)
             {
+                pkt.Release();
+                return;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
                 pkt.Release();
                 return;
             }
