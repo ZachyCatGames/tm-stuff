@@ -8,6 +8,8 @@ using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Test;
 using Test.env;
 using Test.hio;
@@ -63,7 +65,7 @@ const int vendorId = 0x57E;
 var serviceMgr = new ServiceManager();
 
 /* Initialize Packet manager. */
-bool isUsb = false;
+bool isUsb = true;
 IPacketManager pktMgr;
 UsbInterface? usbif = null;
 if (isUsb) {
@@ -140,6 +142,22 @@ if (usbif != null && isUsb) {
 }
 
 pktMgr.Start();
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddGrpc();
+builder.Services.AddSingleton<ITargetManager, TargetManagerImpl>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+app.MapGrpcService<TargetServiceImpl>();
+app.MapGet("/",
+    () =>
+        "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
+
+app.Run();
 
 /*
 var packet = new Packet();

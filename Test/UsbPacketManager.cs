@@ -91,7 +91,7 @@ public class UsbPacketManager : IPacketManager
             }
 
             /* Send it to the ServiceManager. */
-            //Console.WriteLine("Recv {0}", i);
+            Console.WriteLine("Recv {0}", i);
             //File.Open(String.Format("recv_{0}", i++), FileMode.Create).Write(pkt.GetBuffer());
             serviceManager.OnRecvPacket(pkt);
         }

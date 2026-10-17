@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10,7 +10,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="LibUsbDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="protos\" />
+    
+    <Protobuf Include="protos\TargetService.proto" GrpcServices="Server" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option csharp_namespace = "Test";
+
+package test;
+
+service TargetService {
+  rpc QueryTargetCount (QueryTargetCountRequest) returns (TargetCountMsg);
+  rpc QueryTargetInfo (QueryTargetInfoRequest) returns (TargetInfoMsg);
+  
+  rpc QueryConnectedTargetCount (QueryConnectedTargetCountRequest) returns (TargetCountMsg);
+  rpc QueryConnectedTargetInfo (QueryConnectedTargetInfoRequest) returns (TargetInfoMsg);
+}
+
+message QueryTargetCountRequest {
+  /* ... */
+}
+
+message QueryTargetInfoRequest {
+  int32 index = 1;
+}
+
+message QueryConnectedTargetCountRequest {
+  /* ... */
+}
+
+message QueryConnectedTargetInfoRequest {
+  int32 index = 1;
+}
+
+message TargetCountMsg {
+  int32 count = 1;
+}
+
+message TargetInfoMsg {
+  string serialNumber = 1;
+  string address = 2;
+  string connectionType = 3;
+}

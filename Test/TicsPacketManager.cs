@@ -173,11 +173,9 @@ public class TicsPacketManager : IPacketManager
             hdrParsed.WriteTo(hdr);
 
             /* Send tics header. */
-            Console.WriteLine("{0}", BitConverter.ToString(hdr));
             SendBlocking(hdr);
 
             /* Send the packet. */
-            Console.WriteLine("send size={0}", Packet.HeaderSize + pkt.dataSize);
             SendBlocking(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.HeaderSize + pkt.dataSize));
 
             /* Release the packet. */
@@ -238,12 +236,10 @@ public class TicsPacketManager : IPacketManager
     {
         int sent = 0;
         int size = bs.Count;
-        Console.WriteLine("sending {0}", size);
         while (sent < bs.Count) {
             int r = sock.Send(bs[sent..size]);
             sent += r;
         }
-        Console.WriteLine("done");
     }
 
 }
