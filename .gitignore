@@ -4,6 +4,10 @@ Test/empty/*
 Test/testbin2.bin
 Test/testpart.img
 
+htc-stuff
 htc-stuff/*
 recv_*
 send_*
+
+.vscode/*
+.idea/*
