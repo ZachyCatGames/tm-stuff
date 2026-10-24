@@ -7,4 +7,6 @@ public interface ITargetManager
 
     public Task<int> QueryConnectedTargetCountAsync();
     public Task<TargetInfo> QueryConnectedTargetInfoAsync(int index);
+
+    public Task<TargetInfo?> ConnectTargetAsync(string serialNumber);
 }

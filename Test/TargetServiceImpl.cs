@@ -4,16 +4,16 @@ namespace Test;
 
 public class TargetServiceImpl : Test.TargetService.TargetServiceBase
 {
-    private ITargetManager parent;
+    private ITargetManager manager;
 
-    public TargetServiceImpl(ITargetManager parent)
+    public TargetServiceImpl(ITargetManager manager)
     {
-        this.parent = parent;
+        this.manager = manager;
     }
 
     public override async Task<TargetCountMsg> QueryTargetCount(QueryTargetCountRequest request, ServerCallContext context)
     {
-        int count = await parent.QueryTargetCountAsync();
+        int count = await manager.QueryTargetCountAsync();
         return new TargetCountMsg
         {
             Count = count
@@ -22,18 +22,13 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
     
     public override async Task<TargetInfoMsg> QueryTargetInfo(QueryTargetInfoRequest request, ServerCallContext context)
     {
-        var info = await parent.QueryTargetInfoAsync(request.Index);
-        return new TargetInfoMsg
-        {
-            Address        = info.address,
-            SerialNumber   = info.serialNumber,
-            ConnectionType =  info.connectionType,
-        };
+        var info = await manager.QueryTargetInfoAsync(request.Index);
+        return ConvertTargetInfo(info, TargetResult.Success);
     }
     
     public override async Task<TargetCountMsg> QueryConnectedTargetCount(QueryConnectedTargetCountRequest request, ServerCallContext context)
     {
-        int count = await parent.QueryConnectedTargetCountAsync();
+        int count = await manager.QueryConnectedTargetCountAsync();
         return new TargetCountMsg
         {
             Count = count
@@ -42,12 +37,36 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
     
     public override async Task<TargetInfoMsg> QueryConnectedTargetInfo(QueryConnectedTargetInfoRequest request, ServerCallContext context)
     {
-        var info = await parent.QueryConnectedTargetInfoAsync(request.Index);
+        var info = await manager.QueryConnectedTargetInfoAsync(request.Index);
+        return ConvertTargetInfo(info, TargetResult.Success);
+    }
+
+    public override async Task<TargetInfoMsg> ConnectTarget(ConnectTargetRequest request, ServerCallContext context)
+    {
+        var info = await manager.ConnectTargetAsync(request.SerialNumber);
+        if (info == null)
+        {
+            return GetErrorTargetInfoMsg(TargetResult.TargetNotFound);
+        }
+        return ConvertTargetInfo((TargetInfo)info, TargetResult.Success);
+    }
+
+    private TargetInfoMsg ConvertTargetInfo(TargetInfo info, TargetResult result)
+    {
         return new TargetInfoMsg
         {
+            Result         = result,
             Address        = info.address,
             SerialNumber   = info.serialNumber,
-            ConnectionType =  info.connectionType,
+            ConnectionType = info.connectionType,
+        };
+    }
+
+    private TargetInfoMsg GetErrorTargetInfoMsg(TargetResult result)
+    {
+        return new TargetInfoMsg
+        {
+            Result = result
         };
     }
 }
