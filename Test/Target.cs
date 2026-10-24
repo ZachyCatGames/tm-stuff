@@ -1,9 +1,10 @@
 using Test.hio;
 using Test.htcs;
+using Test.env;
 
 namespace Test;
 
-public class Target
+public class Target : IDisposable
 {
     private ServiceManager serviceManager;
     private IPacketManager packetManager;
@@ -13,21 +14,57 @@ public class Target
     private HostPortManager hostPortManager;
     private HtcsSocketManager htcsManager;
 
+    private HostHtcsService htcsService;
+    private HostIOService hioService;
+    private HostDirectoryIOService hioDirService;
+    private HostEnvService envService;
+
+    public TargetInfo Info { get; }
+
     public string SerialNumber { get; }
     public string Address { get; }
     public string ConnectionType { get; }
 
-    public Target(IPacketManager packetManager, TargetInfo info)
+    public Target(ServiceManager serviceManager, IPacketManager packetManager)
     {
-        serviceManager  = new ServiceManager();
+        this.packetManager  = packetManager;
+        this.serviceManager = serviceManager;
+        
+        /* Setup hio and htcs managers. */
         hostfsManager   = new HostFilesystemManager();
         hostPortManager = new HostPortManager();
         htcsManager     = new HtcsSocketManager(hostPortManager);
         
-        SerialNumber   = info.serialNumber;
-        Address        = info.address;
-        ConnectionType = info.connectionType;
+        /* Create services. */
+        htcsService   = new HostHtcsService(serviceManager, hostPortManager);
+        hioService    = new HostIOService(serviceManager, hostfsManager);
+        hioDirService = new HostDirectoryIOService(serviceManager, hostfsManager);
+        envService    = new HostEnvService(serviceManager);
         
-        this.packetManager = packetManager;
+        /* Register services. */
+        serviceManager.RegisterService(htcsService);
+        serviceManager.RegisterService(hioService);
+        serviceManager.RegisterService(hioDirService);
+        serviceManager.RegisterService(envService);
+        
+        Info            = packetManager.GetTargetInfo();
+        SerialNumber    = Info.serialNumber;
+        Address         = Info.address;
+        ConnectionType  = Info.connectionType;
+    }
+
+    public void Dispose()
+    {
+        packetManager.Dispose();
+    }
+
+    public void Connect()
+    {
+        packetManager.Connect();
+    }
+    
+    public IPacketManager GetPacketManager()
+    {
+        return packetManager;
     }
 }
