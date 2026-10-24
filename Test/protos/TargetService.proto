@@ -10,6 +10,13 @@ service TargetService {
   
   rpc QueryConnectedTargetCount (QueryConnectedTargetCountRequest) returns (TargetCountMsg);
   rpc QueryConnectedTargetInfo (QueryConnectedTargetInfoRequest) returns (TargetInfoMsg);
+  
+  rpc ConnectTarget (ConnectTargetRequest) returns (TargetInfoMsg);
+}
+
+enum TargetResult {
+  Success = 0;
+  TargetNotFound = 1;
 }
 
 message QueryTargetCountRequest {
@@ -28,12 +35,18 @@ message QueryConnectedTargetInfoRequest {
   int32 index = 1;
 }
 
+message ConnectTargetRequest {
+  string serialNumber = 1;
+}
+
 message TargetCountMsg {
-  int32 count = 1;
+  TargetResult result = 1;
+  int32 count = 2;
 }
 
 message TargetInfoMsg {
-  string serialNumber = 1;
-  string address = 2;
-  string connectionType = 3;
+  TargetResult result = 1;
+  string serialNumber = 2;
+  string address = 3;
+  string connectionType = 4;
 }
