@@ -37,6 +37,11 @@ public class TicsPacketManager : IPacketManager
         Init();
     }
 
+    public void Dispose()
+    {
+        
+    }
+
     public void SendPacket(Packet pkt)
     {
         packetQueue.Add(pkt);
@@ -45,6 +50,21 @@ public class TicsPacketManager : IPacketManager
     public Task SendPacketAsync(Packet pkt)
     {
         return packetQueue.AddAsync(pkt);
+    }
+
+    public TargetInfo GetTargetInfo()
+    {
+        return new TargetInfo();
+    }
+
+    public void Connect()
+    {
+        
+    }
+
+    public void GetBeaconPacket(out BeaconPacket? beacon)
+    {
+        beacon = new BeaconPacket("");
     }
 
     public void Start()
