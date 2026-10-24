@@ -3,13 +3,13 @@ using LibUsbDotNet;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 
-public class UsbInterface
+public class UsbInterface : IDisposable
 {
-    private IUsbDevice device;
+    private UsbDevice device;
     private UsbEndpointWriter writer;
     private UsbEndpointReader reader;
 
-    public UsbInterface(IUsbDevice dev)
+    public UsbInterface(UsbDevice dev)
     {
         this.device = dev;
 
@@ -18,6 +18,11 @@ public class UsbInterface
         writer = device.OpenEndpointWriter(WriteEndpointID.Ep01);
         reader = device.OpenEndpointReader(ReadEndpointID.Ep01);
         
+    }
+
+    public void Dispose()
+    {
+        device.Dispose();
     }
 
     public Error Read(byte[] buf, int timeout, out int readSize)
@@ -38,5 +43,10 @@ public class UsbInterface
     public Error Write(byte[] buf, int timeout, out int writeSize)
     {
         return writer.Write(buf, timeout, out writeSize);
-    }  
+    }
+
+    public int GetUsbDeviceNumber()
+    {
+        return device.Address | (device.BusNumber << 8);
+    }
 }
