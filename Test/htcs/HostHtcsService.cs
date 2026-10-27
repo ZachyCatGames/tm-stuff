@@ -7,9 +7,9 @@ public class HostHtcsService : Service
     const uint ServiceId = 0xB644D830;
     HtcsSocketManager manager;
 
-    public HostHtcsService(ServiceManager mgr, HostPortManager portMgr) : base(ServiceId, mgr)
+    public HostHtcsService(ServiceManager mgr, HtcsSocketManager portMgr) : base(ServiceId, mgr)
     {
-        this.manager = new HtcsSocketManager(portMgr);
+        manager = portMgr;
     }
 
     public override ServiceTask? ProcessNewRequest(Packet pkt)
