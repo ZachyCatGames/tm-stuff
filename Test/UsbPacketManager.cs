@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Test;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -13,6 +15,8 @@ public class UsbPacketManager : IPacketManager
     readonly Thread sendThread;
     readonly Thread recvThread;
 
+    private readonly UsbTargetProvider parent;
+
     readonly PacketQueue packetQueue = new(20);
 
     readonly ServiceManager serviceManager;
@@ -22,8 +26,10 @@ public class UsbPacketManager : IPacketManager
     private BeaconPacket? beaconPacket;
     
     private bool isConnected;
+    private long isDone;
+    private long recvDone, sendDone;
 
-    public UsbPacketManager(UsbInterface usb, ServiceManager mgr)
+    public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
         usbIf = usb;
@@ -32,6 +38,11 @@ public class UsbPacketManager : IPacketManager
 
         beaconPacket = null;
         isConnected = false;
+        isDone = 0;
+        recvDone = 0;
+        sendDone = 0;
+
+        this.parent = parent;
     }
 
     public void Dispose()
@@ -64,7 +75,7 @@ public class UsbPacketManager : IPacketManager
         };
     }
 
-    public void Connect()
+    public async Task Connect()
     {
         /* Do nothing if we're already connected. */
         if (isConnected)
@@ -83,6 +94,26 @@ public class UsbPacketManager : IPacketManager
         
         /* We're now connected. */
         isConnected = true;
+    }
+
+    public async Task Disconnect()
+    {
+        Debug.Assert(isConnected);
+        
+        /* Cancel current transfers. */
+        Interlocked.Exchange(ref isDone, 1);
+        usbIf.Cancel();
+        
+        /* Wait for both threads to exit. */
+        /* TODO: This "should" probably use async semaphores or similar. */
+        while (Interlocked.Read(ref recvDone) == 0) { }
+        while (Interlocked.Read(ref sendDone) == 0) { }
+
+        /* Tell the target we're done. */
+        GetBeaconPacketImpl(FinalizeServiceId);
+        
+        /* Tell our parent that we're done. */
+        parent.NotifyDisconnect(this);
     }
 
     public void GetBeaconPacket(out BeaconPacket? beacon)
@@ -131,14 +162,16 @@ public class UsbPacketManager : IPacketManager
     
     private void RecvPacketImpl(ref Packet pkt)
     {
-        Error err = usbIf.Read(pkt.GetBuffer(), 0, Packet.PacketMaxSize, 0, out int sizeRead);
+        Error err = usbIf.Read(pkt.GetBuffer(), Packet.PacketMaxSize, 0, out int sizeRead);
     }
 
     private void SendPacketImpl(Packet pkt)
     {
         /* First, send the header. */
         byte[] buf = pkt.GetBuffer();
-        Error err = usbIf.Write(buf, 0, Packet.HeaderSize, 0, out int hdrSize);
+        Error err = usbIf.Write(buf, 0, Packet.HeaderSize, out int hdrSize);
+        if (err == Error.Timeout)
+            return;
         if (err != Error.Success)
         {
             Console.WriteLine("USB Write Error: {0}", err);
@@ -148,7 +181,9 @@ public class UsbPacketManager : IPacketManager
 
         /* Then the data. */
         //Console.WriteLine(pkt.GetDataSize());
-        err = usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, 0, out int dataSize);
+        err = usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, out int dataSize);
+        if (err == Error.Timeout)
+            return;
         if (err != Error.Success)
         {
             Console.WriteLine("USB Write Error: {0}", err);
@@ -168,6 +203,11 @@ public class UsbPacketManager : IPacketManager
 
             /* Send it. */
             SendPacketImpl(pkt);
+            if (Interlocked.Read(ref isDone) != 0)
+            {
+                Interlocked.Exchange(ref sendDone, 1);
+                return;
+            }
 
             /* Release the packet. */
             pkt.Release();
@@ -184,6 +224,11 @@ public class UsbPacketManager : IPacketManager
 
             /* Wait for a message. */
             RecvPacketImpl(ref pkt);
+            if (Interlocked.Read(ref isDone) != 0)
+            {
+                Interlocked.Exchange(ref recvDone, 1);
+                return;
+            }
 
             /* Send it to the ServiceManager. */
             Console.WriteLine("Recv {0}", i);

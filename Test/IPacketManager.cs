@@ -11,7 +11,8 @@ public interface IPacketManager : IDisposable
     public void SendPacket(Packet pkt);
     public Task SendPacketAsync(Packet pkt);
 
-    public void Connect();
+    public Task Connect();
+    public Task Disconnect();
 
     public void GetBeaconPacket(out BeaconPacket? beacon);
 

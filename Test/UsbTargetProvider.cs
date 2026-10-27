@@ -49,7 +49,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         /* Create a new target. */
         var serviceMgr = new ServiceManager();
         var usbif      = new UsbInterface(device);
-        var pktMgr     = new UsbPacketManager(usbif, serviceMgr);
+        var pktMgr     = new UsbPacketManager(usbif, serviceMgr, this);
         var targ       = new Target(serviceMgr, pktMgr);
         
         isNew = true;
@@ -147,5 +147,15 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             }
         }
         return selected;
+    }
+
+    public void NotifyDisconnect(UsbPacketManager child)
+    {
+        /* Assert this? */
+        int id = child.GetUsbDeviceNumber();
+        if (connectedTargets.ContainsKey(id))
+        {
+            connectedTargets.Remove(id);
+        }
     }
 }

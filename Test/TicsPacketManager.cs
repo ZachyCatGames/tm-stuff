@@ -57,7 +57,12 @@ public class TicsPacketManager : IPacketManager
         return new TargetInfo();
     }
 
-    public void Connect()
+    public async Task Connect()
+    {
+        
+    }
+
+    public async Task Disconnect()
     {
         
     }
