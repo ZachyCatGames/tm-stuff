@@ -9,6 +9,10 @@ public class UsbInterface : IDisposable
     private UsbEndpointWriter writer;
     private UsbEndpointReader reader;
 
+    private int timeout;
+    private bool canceled;
+    private Lock mutex;
+
     public UsbInterface(UsbDevice dev)
     {
         this.device = dev;
@@ -17,7 +21,10 @@ public class UsbInterface : IDisposable
 
         writer = device.OpenEndpointWriter(WriteEndpointID.Ep01);
         reader = device.OpenEndpointReader(ReadEndpointID.Ep01);
-        
+
+        timeout  = 0;
+        canceled = false;
+        mutex    = new Lock();
     }
 
     public void Dispose()
@@ -25,24 +32,67 @@ public class UsbInterface : IDisposable
         device.Dispose();
     }
 
-    public Error Read(byte[] buf, int timeout, out int readSize)
+    public void SetTimeout(int timeout)
     {
-        return reader.Read(buf, timeout, out readSize);
+        this.timeout = timeout;
     }
 
-    public Error Read(byte[] buf, int offs, int size, int timeout, out int readSize)
+    public void Cancel()
     {
-        return reader.Read(buf, offs, size, timeout, out readSize);
+        using (var scope = mutex.EnterScope())
+        {
+            canceled = true;
+        }
     }
 
-    public Error Write(byte[] buf, int offs, int size, int timeout, out int writeSize)
+    public Error Read(byte[] buf, out int readSize)
     {
-        return writer.Write(buf, offs, size, timeout, out writeSize);
+        return Read(buf, 0, buf.Length, out readSize);
     }
 
-    public Error Write(byte[] buf, int timeout, out int writeSize)
+    public Error Read(byte[] buf, int offs, int size, out int readSize)
     {
-        return writer.Write(buf, timeout, out writeSize);
+        while (true)
+        {
+            Error result = reader.Read(buf, offs, size, timeout, out readSize);
+            if (result != Error.Timeout)
+            {
+                return result;
+            }
+
+            using (var scope = mutex.EnterScope())
+            {
+                if (canceled)
+                {
+                    return result; 
+                }
+            }
+        }
+    }
+
+    public Error Write(byte[] buf, int offs, int size, out int writeSize)
+    {
+        while (true)
+        {
+            Error result = writer.Write(buf, offs, size, timeout, out writeSize);
+            if (result != Error.Timeout)
+            {
+                return result;
+            }
+
+            using (var scope = mutex.EnterScope())
+            {
+                if (canceled)
+                {
+                    return result; 
+                }
+            }
+        }
+    }
+
+    public Error Write(byte[] buf, out int writeSize)
+    {
+        return Write(buf, 0, buf.Length, out writeSize);
     }
 
     public int GetUsbDeviceNumber()
