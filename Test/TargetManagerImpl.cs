@@ -2,21 +2,16 @@ namespace Test;
 
 public class TargetManagerImpl : ITargetManager
 {
-    private List<Target> targets;
+    private Dictionary<string, Target> targets;
     private List<ITargetProvider> providers;
 
     public TargetManagerImpl()
     {
-        targets   = new List<Target>();
+        targets   = new Dictionary<string, Target>();
         providers = new List<ITargetProvider>();
         
         /* Create providers for USB and TICS (TODO). */
         providers.Add(new UsbTargetProvider());
-    }
-
-    public void AddTarget(Target target)
-    {
-        targets.Add(target);
     }
     
     public async Task<int> QueryTargetCountAsync(QueryType type)
@@ -56,11 +51,22 @@ public class TargetManagerImpl : ITargetManager
             Target? targ = await provider.ConnectAsync(serialNumber);
             if (targ != null)
             {
-                targets.Add(targ);
+                targets[targ.Info.serialNumber] = targ;
                 return targ.Info;
             }
         }
         return null;
+    }
+
+    public async Task<bool> DisconnectTargetAsync(string serialNumber)
+    {
+        if (targets.ContainsKey(serialNumber))
+        {
+            targets[serialNumber].Disconnect();
+            return true;
+        }
+
+        return false;
     }
 
 }

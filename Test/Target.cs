@@ -36,7 +36,7 @@ public class Target : IDisposable
         htcsManager     = new HtcsSocketManager(hostPortManager);
         
         /* Create services. */
-        htcsService   = new HostHtcsService(serviceManager, hostPortManager);
+        htcsService   = new HostHtcsService(serviceManager, htcsManager);
         hioService    = new HostIOService(serviceManager, hostfsManager);
         hioDirService = new HostDirectoryIOService(serviceManager, hostfsManager);
         envService    = new HostEnvService(serviceManager);
@@ -65,6 +65,17 @@ public class Target : IDisposable
         
         /* Start the packet manager properly. */
         packetManager.Connect();
+    }
+
+    public void Disconnect()
+    {
+        /* TODO: serviceManager.Finalize() */
+        /* TODO: hostfsManager.Finalize() */
+        /* TODO: hostPortManager.Finalize() */
+        /* TODO: htcsManager.Finalize() */
+        
+        /* Finalize the packet manager. */
+        packetManager.Disconnect();
     }
     
     public IPacketManager GetPacketManager()
