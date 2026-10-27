@@ -9,6 +9,7 @@ service TargetService {
   rpc QueryTargetInfo (QueryTargetInfoRequest) returns (TargetInfoMsg);
 
   rpc ConnectTarget (ConnectTargetRequest) returns (TargetInfoMsg);
+  rpc DisconnectTarget (DisconnectTargetRequest) returns (DisconnectTargetMsg);
 }
 
 enum TargetResult {
@@ -49,6 +50,10 @@ message ConnectTargetRequest {
   string serialNumber = 1;
 }
 
+message DisconnectTargetRequest {
+  string serialNumber = 1;
+}
+
 message TargetCountMsg {
   TargetResult result = 1;
   int32 count = 2;
@@ -60,4 +65,8 @@ message TargetInfoMsg {
   string address = 3;
   string connectionType = 4;
   TargetStatus status = 5;
+}
+
+message DisconnectTargetMsg {
+  TargetResult result = 1;
 }

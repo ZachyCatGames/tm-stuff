@@ -38,4 +38,12 @@ public class TargetServiceImpl : Test.proto.TargetService.TargetServiceBase
         return Conversions.ConvertTargetInfo((TargetInfo)info, TargetResult.Success);
     }
 
+    public override async Task<DisconnectTargetMsg> DisconnectTarget(DIsconnectTargetRequest request, ServerCallContext context)
+    {
+        await manager.DisconnectTargetAsync(request.SerialNumber);
+        return new DisconnectTargetMsg
+        {
+            Result = TargetResult.Success
+        };
+    }
 }

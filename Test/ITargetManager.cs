@@ -6,4 +6,5 @@ public interface ITargetManager
     public Task<TargetInfo> QueryTargetInfosAsync(QueryType type, int index);
 
     public Task<TargetInfo?> ConnectTargetAsync(string serialNumber);
+    public Task DisconnectTargetAsync(string serialNumber);
 }
