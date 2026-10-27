@@ -19,20 +19,34 @@ public class TargetManagerImpl : ITargetManager
         targets.Add(target);
     }
     
-    public async Task<int> QueryTargetCountAsync()
+    public async Task<int> QueryTargetCountAsync(QueryType type)
     {
         int all = 0;
-        foreach (var provider in providers)
+        if (type == QueryType.All || type == QueryType.Connected)
         {
-            all += await provider.QueryTargetCountAsync();
+            providers.ForEach(async (provider) => all += await provider.QueryConnectedCountAsync());
+        }
+        if (type == QueryType.All || type == QueryType.Disconnected)
+        {
+            providers.ForEach(async (provider) => all += await provider.QueryDisconnectedCountAsync());
         }
         return all;
     }
 
-    public async Task<TargetInfo> QueryTargetInfoAsync(int index)
+    public async Task<TargetInfo> QueryTargetInfosAsync(QueryType type, int index)
     {
-        var list = await QueryTargetInfosImplAsync();
-        return list[index];
+        List<TargetInfo> infos = new List<TargetInfo>();
+        
+        if (type == QueryType.All || type == QueryType.Connected)
+        {
+            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryConnectedInfosAsync()));
+        }
+        if (type == QueryType.All || type == QueryType.Disconnected)
+        {
+            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryDisconnectedInfosAsync()));
+        }
+
+        return infos[index];
     }
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)
@@ -49,25 +63,4 @@ public class TargetManagerImpl : ITargetManager
         return null;
     }
 
-    public async Task<int> QueryConnectedTargetCountAsync()
-    {
-        return targets.Count;
-    }
-    
-    public async Task<TargetInfo> QueryConnectedTargetInfoAsync(int index)
-    {
-        return targets[index].Info;
-    }
-
-    private async Task<List<TargetInfo>> QueryTargetInfosImplAsync()
-    {
-        var list = new List<TargetInfo>();
-        foreach (var provider in providers)
-        {
-            var cur = await provider.QueryTargetInfosAsync();
-            cur.ForEach((e) => list.Add(e));
-        }
-
-        return list;
-    }
 }

@@ -22,25 +22,15 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         context.Dispose();
     }
     
-    Target CreateTarget(UsbDevice device, out bool isNew)
+    Target? CreateTarget(UsbDevice device, out bool isNew)
     {
         int id = device.Address | (device.BusNumber << 8);
         
         /* Check if we already have a target for this device. */
-        try
+        if (connectedTargets.ContainsKey(id))
         {
-            var t = connectedTargets[id];
-            //device.Dispose();
-            return t;
-        }
-        catch (KeyNotFoundException)
-        {
-            /* ... */
-        }
-        finally
-        {
-            /* The device isn't needed. */
             isNew = false;
+            return connectedTargets[id];
         }
         
         /* Open the device. */
@@ -65,7 +55,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         isNew = true;
         return targ;
     }
-
+    
     public async Task<TargetList> QueryTargetsImplAsync(Func<Target, bool> pred)
     {
         var list = new TargetList();
@@ -75,10 +65,14 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             foreach (var dev in sdkDevices)
             {
                 var targ = CreateTarget((UsbDevice)(dev.Clone()), out bool isNew);
-                if (pred(targ))
-                    list.Add(targ);
-                else
-                    targ.Dispose();
+                if (isNew)
+                {
+                    if (pred(targ))
+                        list.Add(targ);
+                    else
+                        targ.Dispose();
+                } 
+
             }
         }
 
@@ -90,27 +84,42 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         return QueryTargetsImplAsync((_) => true);
     } 
     
-    public async Task<int> QueryTargetCountAsync()
+    public async Task<int> QueryDisconnectedCountAsync()
     {
-        using (var sdkDevices = context.FindAll(d => d.VendorId == SdkVendorId && d.ProductId == SdkProductId))
+        using (var targets = await QueryTargetsImplAsync())
         {
-            return sdkDevices.Count;
+            return targets.Count;
         }
     }
 
-    public async Task<List<TargetInfo>> QueryTargetInfosAsync()
+    public async Task<List<TargetInfo>> QueryDisconnectedInfosAsync()
     {
         var list = new List<TargetInfo>();
         using (var targets = await QueryTargetsImplAsync())
         {
-            foreach (var targ in targets)
-            {
-                list.Add(targ.Info);
-            }
+            targets.ForEach(targ => list.Add(targ.Info));
         }
+
         return list;
     }
 
+    public async Task<int> QueryConnectedCountAsync()
+    {
+
+        return connectedTargets.Count;
+    }
+
+    public async Task<List<TargetInfo>> QueryConnectedInfosAsync()
+    {
+        var list = new List<TargetInfo>();
+        foreach (var target in connectedTargets.Values)
+        {
+            list.Add(target.Info);
+        }
+
+        return list;
+    }
+    
     public async Task<Target?> ConnectAsync(string serialNumber)
     {
         var list = await QueryTargetsImplAsync();

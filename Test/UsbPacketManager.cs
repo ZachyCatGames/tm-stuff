@@ -39,14 +39,6 @@ public class UsbPacketManager : IPacketManager
         usbIf.Dispose();
     }
 
-    public void Start()
-    {
-        sendThread.Start();
-        Console.WriteLine("Started USB send thread");
-        recvThread.Start();
-        Console.WriteLine("Started USB recv thread");
-    }
-
     public void SendPacket(Packet pkt)
     {
         packetQueue.Add(pkt);
@@ -82,6 +74,12 @@ public class UsbPacketManager : IPacketManager
         
         /* Send a connect packet. */
         GetBeaconPacketImpl(InitializeServiceId);
+        
+        /* Start the send and receive threads. */
+        sendThread.Start();
+        Console.WriteLine("Started USB send thread");
+        recvThread.Start();
+        Console.WriteLine("Started USB recv thread");
         
         /* We're now connected. */
         isConnected = true;

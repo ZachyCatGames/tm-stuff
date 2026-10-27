@@ -60,6 +60,10 @@ public class Target : IDisposable
 
     public void Connect()
     {
+        /* Start the service manager. */
+        serviceManager.Init(packetManager);
+        
+        /* Start the packet manager properly. */
         packetManager.Connect();
     }
     

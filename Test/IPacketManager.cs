@@ -17,6 +17,4 @@ public interface IPacketManager : IDisposable
 
     /* Target info comes from transport-specific beacon packets, so this lives here. */
     public TargetInfo GetTargetInfo();
-
-    public void Start();
 }
