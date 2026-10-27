@@ -99,9 +99,9 @@ public abstract class ServiceTask
         return parent.serviceManager.SendPacketAsync(pkt);
     }
 
-    public async Task SignalIncomingPacket(Packet pkt)
+    public void SignalIncomingPacket(Packet pkt)
     {
-        await packets.AddAsync(pkt);
+        packets.Add(pkt);
     }
 
     protected async Task<Packet> WaitForPacket()

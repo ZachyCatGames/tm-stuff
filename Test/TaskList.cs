@@ -38,6 +38,14 @@ public class TaskList
         }
     }
 
+    public void RemoveAll()
+    {
+        foreach (var lvl in list)
+        {
+            lvl.Clear();
+        }
+    }
+
     public ServiceTask? FindByTaskById(uint taskId)
     {
         using var scope = listLock.EnterScope();

@@ -62,7 +62,7 @@ public class TargetManagerImpl : ITargetManager
     {
         if (targets.ContainsKey(serialNumber))
         {
-            targets[serialNumber].Disconnect();
+            await targets[serialNumber].DisconnectAsync();
             return true;
         }
 

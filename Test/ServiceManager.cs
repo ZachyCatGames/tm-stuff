@@ -9,7 +9,9 @@ public class ServiceManager
     public const int RecvPacketsCountMax = 20;
     public const int JobCountMax = 20;
 
-    bool initialized = false;
+    private bool initialized = false;
+    private bool isDone = false;
+    private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
 
     readonly List<Service> services = [];
 
@@ -21,6 +23,10 @@ public class ServiceManager
     readonly Thread workThread;
     readonly PacketQueue packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
 
+    private readonly Lock packetProcessMutex = new();
+
+    private readonly CancellationTokenSource exitTokenSource = new();
+    
     public ServiceManager()
     {
         for (int i = 0; i < SendPacketsCountMax; i++)
@@ -41,6 +47,21 @@ public class ServiceManager
         initialized = true;
         packetMgr = mgr;
         workThread.Start();
+    }
+
+    public void Finalize()
+    {
+        /* Set done flag. */
+        isDone = true;
+        
+        /* Cancel pending wait in worker. */
+        exitTokenSource.Cancel();
+        
+        /* Wait for the worker to finish. */
+        doneEv.WaitOne();
+        
+        /* Cancel all current tasks. */
+        taskList.RemoveAll();
     }
     
     // for use by packet mgr.
@@ -105,15 +126,30 @@ public class ServiceManager
         while (true)
         {
             /* Wait for a new packet. */
-            Packet pkt = await packetQueue.TakeAsync();
-            
+            Packet pkt;
+            try
+            {
+                pkt = await packetQueue.TakeAsync(exitTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Assert(isDone);
+                
+                /* Signal that we're done. */
+                doneEv.Set();
+                return;
+            }
+
             /* Call impl on it. */
-            await ProcessRecvPacketImpl(pkt);
+            using (var scope = packetProcessMutex.EnterScope())
+            {
+                ProcessRecvPacketImpl(pkt);
+            }
         }
     }
 
     // called by PacketManager recv thread
-    public async Task ProcessRecvPacketImpl(Packet pkt)
+    public void ProcessRecvPacketImpl(Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();
@@ -131,7 +167,7 @@ public class ServiceManager
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {
                         RegisterTask(task);
-                        await task.SignalIncomingPacket(pkt);
+                        task.SignalIncomingPacket(pkt);
                         task.StartImpl();
                     }
                     else
@@ -150,7 +186,7 @@ public class ServiceManager
             /* Find the target service. */
             if (taskList.FindByTaskById(pkt.taskId) is ServiceTask task)
             {
-                await task.SignalIncomingPacket(pkt);
+                task.SignalIncomingPacket(pkt);
                 return;
             }
 

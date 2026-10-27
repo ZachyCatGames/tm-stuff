@@ -18,6 +18,8 @@ public class Target : IDisposable
     private HostIOService hioService;
     private HostDirectoryIOService hioDirService;
     private HostEnvService envService;
+    
+    private SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 
     public TargetInfo Info { get; }
 
@@ -67,15 +69,35 @@ public class Target : IDisposable
         packetManager.Connect();
     }
 
-    public void Disconnect()
+    private void DisconnectImpl()
     {
-        /* TODO: serviceManager.Finalize() */
+        /* Finalize service manager. */
+        serviceManager.Finalize();
+        
         /* TODO: hostfsManager.Finalize() */
         /* TODO: hostPortManager.Finalize() */
         /* TODO: htcsManager.Finalize() */
         
         /* Finalize the packet manager. */
         packetManager.Disconnect();
+    }
+
+    public void Disconnect()
+    {
+        DisconnectImpl();
+    }
+
+    public async Task DisconnectAsync()
+    {
+        /* Run the disconnect routine in a thread. */
+        var thread = new Thread(DisconnectImpl);
+        thread.Start();
+        
+        /* Wait for it to finish. */
+        await doneSignal.WaitAsync();
+        
+        /* Join it. */
+        thread.Join();
     }
     
     public IPacketManager GetPacketManager()

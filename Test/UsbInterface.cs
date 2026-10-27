@@ -22,7 +22,7 @@ public class UsbInterface : IDisposable
         writer = device.OpenEndpointWriter(WriteEndpointID.Ep01);
         reader = device.OpenEndpointReader(ReadEndpointID.Ep01);
 
-        timeout  = 0;
+        timeout  = 1000;
         canceled = false;
         mutex    = new Lock();
     }
