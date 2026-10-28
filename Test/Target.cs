@@ -74,9 +74,11 @@ public class Target : IDisposable
         /* Finalize service manager. */
         serviceManager.Finalize();
         
-        /* TODO: hostfsManager.Finalize() */
-        /* TODO: hostPortManager.Finalize() */
-        /* TODO: htcsManager.Finalize() */
+        /* Finalize the file manager. */
+        hostfsManager.Dispose();
+        
+        /* Finalize the htcs socket manager. */
+        htcsManager.Dispose();
         
         /* Finalize the packet manager. */
         packetManager.Disconnect();
