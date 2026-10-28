@@ -47,6 +47,11 @@ public class UsbPacketManager : IPacketManager
 
     public void Dispose()
     {
+        /* Disconnect if we're connected. */
+        if (isConnected)
+            Disconnect();
+        
+        /* Dispose the USB Interface. */
         usbIf.Dispose();
     }
 
@@ -96,7 +101,7 @@ public class UsbPacketManager : IPacketManager
         isConnected = true;
     }
 
-    public async Task Disconnect()
+    public void Disconnect()
     {
         Debug.Assert(isConnected);
         
@@ -111,7 +116,7 @@ public class UsbPacketManager : IPacketManager
 
         /* Tell the target we're done. */
         GetBeaconPacketImpl(FinalizeServiceId);
-        
+
         /* Tell our parent that we're done. */
         parent.NotifyDisconnect(this);
     }

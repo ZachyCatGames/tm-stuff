@@ -62,7 +62,7 @@ public class TicsPacketManager : IPacketManager
         
     }
 
-    public async Task Disconnect()
+    public void Disconnect()
     {
         
     }

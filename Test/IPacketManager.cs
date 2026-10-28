@@ -12,7 +12,7 @@ public interface IPacketManager : IDisposable
     public Task SendPacketAsync(Packet pkt);
 
     public Task Connect();
-    public Task Disconnect();
+    public void Disconnect();
 
     public void GetBeaconPacket(out BeaconPacket? beacon);
 

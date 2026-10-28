@@ -62,7 +62,12 @@ public class TargetManagerImpl : ITargetManager
     {
         if (targets.ContainsKey(serialNumber))
         {
+            /* Disconnect the target. */
             await targets[serialNumber].DisconnectAsync();
+            
+            /* Remove it from our list of targets. */
+            targets.Remove(serialNumber);
+            
             return true;
         }
 

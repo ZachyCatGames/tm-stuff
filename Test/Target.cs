@@ -81,7 +81,7 @@ public class Target : IDisposable
         htcsManager.Dispose();
         
         /* Finalize the packet manager. */
-        packetManager.Disconnect();
+        packetManager.Dispose();
     }
 
     public void Disconnect()
