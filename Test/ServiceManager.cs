@@ -13,15 +13,15 @@ public class ServiceManager
     private bool isDone = false;
     private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
 
-    readonly List<Service> services = [];
+    private readonly List<Service> services = new();
+    private readonly TaskList taskList = new();
 
-    readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
-    readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
-    readonly TaskList taskList = new();
+    private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
+    private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
 
-    IPacketManager packetMgr;
-    readonly Thread workThread;
-    readonly PacketQueue packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
+    private IPacketManager packetMgr;
+    private readonly Thread workThread;
+    private readonly PacketQueue packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
 
     private readonly Lock packetProcessMutex = new();
 
@@ -60,8 +60,8 @@ public class ServiceManager
         /* Wait for the worker to finish. */
         doneEv.WaitOne();
         
-        /* Cancel all current tasks. */
-        taskList.RemoveAll();
+        /* Cancel all current taskList. */
+        CancelAllTasks();
     }
     
     // for use by packet mgr.
@@ -89,17 +89,7 @@ public class ServiceManager
     {
         services.Add(srv);
     }
-
-    public void RegisterTask(ServiceTask task)
-    {
-        taskList.AddTask(task);
-    }
-
-    public void NotifyTaskDone(ServiceTask task)
-    {
-        taskList.RemoveTask(task);
-    }
-
+    
     public Packet AllocRecvPacket()
     {
         return freePacketsForRecv.Take();
@@ -120,8 +110,32 @@ public class ServiceManager
     {
         return freePacketsForSend.TakeAsync();
     }
+
+    public void RegisterTask(ServiceTask task)
+    {
+        taskList.AddTask(task);
+    }
+
+    public void CancelAllTasks()
+    {
+        taskList.ForEach((task) =>
+        {
+            /* Notify the task that it's canceled. */
+            task.Cancel();
+            
+            /* Wait for it to finish, we don't care about the result. */
+            try
+            {
+                task.WaitDone();
+            }
+            catch (Exception)
+            {
+                /* ... */
+            }
+        });
+    }
     
-    public async void WorkThreadFunc()
+    async void WorkThreadFunc()
     {
         while (true)
         {
@@ -145,11 +159,14 @@ public class ServiceManager
             {
                 ProcessRecvPacketImpl(pkt);
             }
+            
+            /* Remove any finished taskList. */
+            taskList.RemoveIf((task) => task.IsDone());
         }
     }
 
     // called by PacketManager recv thread
-    public void ProcessRecvPacketImpl(Packet pkt)
+    void ProcessRecvPacketImpl(Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();
@@ -166,7 +183,7 @@ public class ServiceManager
                 {
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {
-                        RegisterTask(task);
+                        taskList.AddTask(task);
                         task.SignalIncomingPacket(pkt);
                         task.StartImpl();
                     }

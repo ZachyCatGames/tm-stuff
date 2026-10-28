@@ -9,11 +9,6 @@ public abstract class Service(uint id, ServiceManager mgr)
     {
         serviceManager.RegisterTask(task);
     }
-
-    public void NotifyDone(ServiceTask task)
-    {
-        serviceManager.NotifyTaskDone(task);
-    }
-
+    
     public abstract ServiceTask? ProcessNewRequest(Packet pkt);
 }

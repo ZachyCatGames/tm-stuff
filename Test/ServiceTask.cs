@@ -16,6 +16,8 @@ public abstract class ServiceTask
 
     public Task task;
 
+    private CancellationTokenSource cancelSrc = new();
+
     public ServiceTask(Service par, TaskType type, uint taskId, uint prio)
     {
         this.parent = par;
@@ -26,19 +28,31 @@ public abstract class ServiceTask
         this.priority = prio;
         this.packets = new(20);
     }
+    
+    public void Cancel()
+    {
+        cancelSrc.Cancel();
+    }
 
     private async Task StartImplAsync()
     {
         /* Start the task. */
         await this.Run();
-
-        /* We're done. */
-        this.NotifyDone();
     }
 
     public virtual void StartImpl()
     {
         task = this.StartImplAsync();
+    }
+
+    public bool IsDone()
+    {
+        return task.IsCompleted || task.IsCanceled;
+    }
+
+    public void WaitDone()
+    {
+        task.Wait();
     }
 
     protected abstract Task Run();
@@ -54,6 +68,11 @@ public abstract class ServiceTask
         pkt.taskId = this.taskId;
         pkt.taskType = this.type;
         pkt.Reset();
+    }
+
+    protected CancellationToken GetCancelToken()
+    {
+        return cancelSrc.Token;
     }
 
     protected Packet AllocSendPacket()
@@ -82,11 +101,6 @@ public abstract class ServiceTask
         Packet pkt = await GetManager().AllocRecvPacketAsync();
         InitPacketImpl(pkt);
         return pkt;
-    }
-
-    protected void NotifyDone()
-    {
-        parent.NotifyDone(this);
     }
 
     protected void SendPacket(Packet pkt)

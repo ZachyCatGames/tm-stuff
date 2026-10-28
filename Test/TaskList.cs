@@ -38,6 +38,31 @@ public class TaskList
         }
     }
 
+    public void ForEach(Action<ServiceTask> pred)
+    {
+        foreach (var lvl in list)
+        {
+            foreach (var task in lvl)
+            {
+                pred(task);
+            }
+        }
+    }
+
+    public void RemoveIf(Func<ServiceTask, bool> pred)
+    {
+        foreach (var lvl in list)
+        {
+            foreach (var task in lvl)
+            {
+                if (pred(task))
+                {
+                    this.RemoveTask(task);
+                }
+            }
+        }
+    }
+
     public void RemoveAll()
     {
         foreach (var lvl in list)
