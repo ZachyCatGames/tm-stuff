@@ -41,7 +41,7 @@ public class HostIOReadTask : ServiceTask
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packet.HeaderSize + 0x8, curSize);
+                await mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packet.HeaderSize + 0x8, curSize, GetCancelToken());
             }
             catch (HioException excpt)
             {

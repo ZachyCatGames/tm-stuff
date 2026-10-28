@@ -11,7 +11,7 @@ using Test.htcs;
 namespace Test.hio;
 
 public class HostFilesystemManager {
-    enum DescriptorType
+    private enum DescriptorType
     {
         None,
         File,
@@ -33,8 +33,8 @@ public class HostFilesystemManager {
     
     class FileItem : FsItem
     {
-        readonly FileStream accessor;
-        FileAccess amode;
+        private readonly FileStream accessor;
+        private FileAccess amode;
         
         // guess mode is FsOpenMode?
         public FileItem(string p, UInt32 mode) : base(DescriptorType.File, p) {
@@ -71,7 +71,7 @@ public class HostFilesystemManager {
             accessor.Dispose();
         }
 
-        public async Task ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+        public async Task ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
         {
             /* Cannot read past EoF. */
             if (fileOffs + readSize > this.GetFileSize())
@@ -84,7 +84,7 @@ public class HostFilesystemManager {
             try
             {
                 accessor.Seek(fileOffs, SeekOrigin.Begin);
-                await accessor.ReadAsync(buf, bufOffs, readSize);
+                await accessor.ReadExactlyAsync(buf, bufOffs, readSize, ct);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -96,7 +96,7 @@ public class HostFilesystemManager {
             }
         }
         
-        public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+        public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
         {
             /* Can't write a read-only file. */
             if (amode != FileAccess.Write && amode != FileAccess.ReadWrite)
@@ -105,7 +105,7 @@ public class HostFilesystemManager {
             try
             {
                 accessor.Seek(fileOffs, SeekOrigin.Begin);
-                await accessor.WriteAsync(buf, bufOffs, readSize);
+                await accessor.WriteAsync(buf, bufOffs, readSize, ct);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -125,8 +125,8 @@ public class HostFilesystemManager {
             accessor.SetLength(size);
         }
         
-        public Task FlushFileAsync() {
-            return accessor.FlushAsync();
+        public Task FlushFileAsync(CancellationToken ct) {
+            return accessor.FlushAsync(ct);
         }
         
         public void SetPriorityForFile(Int32 prio) {
@@ -144,9 +144,9 @@ public class HostFilesystemManager {
     // or w/e. idk if c# has a cross platform way of holding a dir handle
     class DirectoryItem : FsItem
     {
-        readonly bool readFileInfo;
-        readonly bool readDirInfo;
-        readonly bool noFileSizes;
+        private readonly bool readFileInfo = false;
+        private readonly bool readDirInfo = false;
+        private readonly bool noFileSizes = false;
         
         // Assuming mode is fs DirOpenMode?
         public DirectoryItem(string path, UInt32 mode) : base(DescriptorType.Directory, path)
@@ -171,7 +171,8 @@ public class HostFilesystemManager {
                 count += Directory.GetFiles(path).Length;
             if (readDirInfo)
                 count += Directory.GetDirectories(path).Length;
-            throw new NotImplementedException();
+
+            return count;
         }
         
         public LinkedList<HioDirectoryEntry> ReadDirectory(int maxCount)
@@ -198,6 +199,9 @@ public class HostFilesystemManager {
                         info.Name,
                         info.GetFileSystemInfos().Length
                     ));
+                    
+                    /* Increment count. */
+                    count++;
                 }
             }
             
@@ -220,6 +224,9 @@ public class HostFilesystemManager {
                         info.Name,
                         size
                     ));
+                    
+                    /* Increment count. */
+                    count++;
                 }
             }
                 
@@ -241,9 +248,9 @@ public class HostFilesystemManager {
     // literally just making up some number here
     public const int OpenFileCountMax = 256;
     
-    FileDescriptorManager<FsItem> fsItems = new(OpenFileCountMax);
-    Regex driveRegex = new Regex("^/[aA-zZ]:/");
-    Regex driveRegex2 = new Regex("^[aA-zZ]:/");
+    private FileDescriptorManager<FsItem> fsItems = new(OpenFileCountMax);
+    private Regex driveRegex = new Regex("^/[aA-zZ]:/");
+    private Regex driveRegex2 = new Regex("^[aA-zZ]:/");
     
     FileItem GetFileItemOrThrowNotFound(int fd)
     {
@@ -409,14 +416,14 @@ public class HostFilesystemManager {
         return new FileTimeStamp(0,0,0);
     }
     
-    public Task ReadFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+    public Task ReadFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).ReadFileAsync(buf, fileOffs, bufOffs, readSize);
+        return GetFileItemOrThrowNotFound(fd).ReadFileAsync(buf, fileOffs, bufOffs, readSize, ct);
     }
     
-    public Task WriteFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize)
+    public Task WriteFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).WriteFileAsync(buf, fileOffs, bufOffs, readSize);
+        return GetFileItemOrThrowNotFound(fd).WriteFileAsync(buf, fileOffs, bufOffs, readSize, ct);
     }
     
     public Int64 GetFileSize(int fd)
@@ -429,9 +436,9 @@ public class HostFilesystemManager {
         GetFileItemOrThrowNotFound(fd).SetFileSize(size);
     }
     
-    public Task FlushFileAsync(int fd)
+    public Task FlushFileAsync(int fd, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).FlushFileAsync();
+        return GetFileItemOrThrowNotFound(fd).FlushFileAsync(ct);
     }
     
     public void SetPriorityForFile(int fd, Int32 prio)

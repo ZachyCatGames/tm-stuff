@@ -26,7 +26,7 @@ public class HostIOFlushTask : ServiceTask
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try
         {
-            await mgr.FlushFileAsync((int)fd);
+            await mgr.FlushFileAsync((int)fd, GetCancelToken());
         }
         catch (HioException excpt)
         {

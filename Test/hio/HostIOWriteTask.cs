@@ -37,7 +37,7 @@ public class HostIOWriteTask : ServiceTask
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.WriteFileAsync((int)fd, pkt.GetBuffer(), offset, Packet.HeaderSize + 0xD, size);
+                await mgr.WriteFileAsync((int)fd, pkt.GetBuffer(), offset, Packet.HeaderSize + 0xD, size, GetCancelToken());
             }
             catch (HioException excpt)
             {
