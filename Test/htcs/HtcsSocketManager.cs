@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -7,7 +8,7 @@ using Microsoft.VisualBasic;
 
 namespace Test.htcs;
 
-public class HtcsSocketManager
+public class HtcsSocketManager : IDisposable
 {
     const int SocketCountMax = 0x1000;
 
@@ -18,7 +19,7 @@ public class HtcsSocketManager
         Session,
     }
 
-    class HtcsSocket
+    class HtcsSocket : IDisposable
     {
         public int fd;
 
@@ -34,6 +35,8 @@ public class HtcsSocketManager
             this.portName = "";
             this.peerName = "";
         }
+        
+        public virtual void Dispose() {}
 
         public HtcsSocket(int fd, SockAddrHtcs addr)
         {
@@ -70,6 +73,12 @@ public class HtcsSocketManager
 
             /* Log host socket info. */
             Console.WriteLine(((IPEndPoint)hostSocket.LocalEndPoint).Port);
+        }
+
+        public override void Dispose()
+        {
+            hostSocket.Close();
+            hostSocket.Dispose();
         }
 
         public void HostListen(int backlogCount)
@@ -112,6 +121,12 @@ public class HtcsSocketManager
         {
             this.type = HtcsSocketType.Session;
             this.hostSocket = hostSock;
+        }
+
+        public override void Dispose()
+        {
+            hostSocket.Close();
+            hostSocket.Dispose();
         }
 
         public async ValueTask<int> RecvAsync(ArraySegment<byte> buf, int flags, CancellationToken ct)
@@ -158,6 +173,23 @@ public class HtcsSocketManager
         this.hostPortMgr = hpm;
     }
 
+    public void Dispose()
+    {
+        CloseAll();
+    }
+
+    public void CloseAll()
+    {
+        /* Close all used file descriptors. */
+        var used = sockets.GetUsedDescriptors();
+        foreach (int fd in used)
+        {
+            Debug.Assert(sockets[fd] != null);
+            sockets[fd].Dispose();
+            sockets[fd] = null;
+        }
+    }
+
     int AllocateFileDescriptor()
     {
         return this.sockets.AllocateFileDescriptor();
@@ -194,6 +226,7 @@ public class HtcsSocketManager
             throw new HtcsException(ErrorCode.HTCS_EBADF);
 
         /* Free the socket. */
+        sockets[fd].Dispose();
         sockets[fd] = null;
     }
 
