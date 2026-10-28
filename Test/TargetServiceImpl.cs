@@ -13,35 +13,52 @@ public class TargetServiceImpl : Test.proto.TargetService.TargetServiceBase
         this.manager = manager;
     }
 
-    public override async Task<TargetCountMsg> QueryTargetCount(QueryTargetCountRequest request, ServerCallContext context)
+    public override async Task<QueryTargetCountReply> QueryTargetCount(QueryTargetCountRequest request, ServerCallContext context)
     {
         int count = await manager.QueryTargetCountAsync(protos.Conversions.QueryTypeToImpl(request.Type));
-        return new TargetCountMsg
+        return new QueryTargetCountReply
         {
-            Count = count
+            Result = TargetResult.Success,
+            Count  = count
         };
     }
     
-    public override async Task<TargetInfoMsg> QueryTargetInfo(QueryTargetInfoRequest request, ServerCallContext context)
+    public override async Task<QueryTargetInfoReply> QueryTargetInfo(QueryTargetInfoRequest request, ServerCallContext context)
     {
-        var info = await manager.QueryTargetInfosAsync(Conversions.QueryTypeToImpl(request.Type), request.Index);
-        return Conversions.ConvertTargetInfo(info, TargetResult.Success);
+        var info = await manager.QueryTargetInfosAsync(Conversions.QueryTypeToImpl(request.Type), request.MaxCount);
+
+        var convList = info.ConvertAll(Conversions.ConvertTargetInfo);
+        var t = new QueryTargetInfoReply
+        {
+            Result = TargetResult.Success,
+        };
+        t.Targets.AddRange(convList);
+
+        return t;
     }
     
-    public override async Task<TargetInfoMsg> ConnectTarget(ConnectTargetRequest request, ServerCallContext context)
+    public override async Task<ConnectTargetReply> ConnectTarget(ConnectTargetRequest request, ServerCallContext context)
     {
         var info = await manager.ConnectTargetAsync(request.SerialNumber);
         if (info == null)
         {
-            return Conversions.GetErrorTargetInfoMsg(TargetResult.TargetNotFound);
+            return new ConnectTargetReply
+            {
+                Result = TargetResult.TargetNotFound,
+            };
         }
-        return Conversions.ConvertTargetInfo((TargetInfo)info, TargetResult.Success);
+
+        return new ConnectTargetReply
+        {
+            Result = TargetResult.Success,
+            Info = Conversions.ConvertTargetInfo((TargetInfo)info)
+        };
     }
 
-    public override async Task<DisconnectTargetMsg> DisconnectTarget(DisconnectTargetRequest request, ServerCallContext context)
+    public override async Task<DisconnectTargetReply> DisconnectTarget(DisconnectTargetRequest request, ServerCallContext context)
     {
         await manager.DisconnectTargetAsync(request.SerialNumber);
-        return new DisconnectTargetMsg
+        return new DisconnectTargetReply
         {
             Result = TargetResult.Success
         };

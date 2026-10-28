@@ -5,11 +5,16 @@ option csharp_namespace = "Test.proto";
 package test.proto;
 
 service TargetService {
-  rpc QueryTargetCount (QueryTargetCountRequest) returns (TargetCountMsg);
-  rpc QueryTargetInfo (QueryTargetInfoRequest) returns (TargetInfoMsg);
+  /* Target Info. */
+  rpc QueryTargetCount (QueryTargetCountRequest) returns (QueryTargetCountReply);
+  rpc QueryTargetInfo (QueryTargetInfoRequest) returns (QueryTargetInfoReply);
 
-  rpc ConnectTarget (ConnectTargetRequest) returns (TargetInfoMsg);
-  rpc DisconnectTarget (DisconnectTargetRequest) returns (DisconnectTargetMsg);
+  /* Connect / Disconnect. */
+  rpc ConnectTarget (ConnectTargetRequest) returns (ConnectTargetReply);
+  rpc DisconnectTarget (DisconnectTargetRequest) returns (DisconnectTargetReply);
+
+  /* HTCS Port Management. */
+
 }
 
 enum TargetResult {
@@ -33,40 +38,41 @@ message QueryTargetCountRequest {
   /* ... */
 }
 
+message QueryTargetCountReply {
+  TargetResult result = 1;
+  int32 count = 2;
+}
+
 message QueryTargetInfoRequest {
   QueryType type = 1;
-  int32 index = 2;
+  int32 maxCount = 2;
 }
 
-message QueryConnectedTargetCountRequest {
-  /* ... */
-}
-
-message QueryConnectedTargetInfoRequest {
-  int32 index = 1;
+message QueryTargetInfoReply {
+  TargetResult result = 1;
+  repeated TargetInfoMsg targets = 2;
 }
 
 message ConnectTargetRequest {
   string serialNumber = 1;
 }
 
+message ConnectTargetReply {
+  TargetResult result = 1;
+  TargetInfoMsg info = 2;
+}
+
 message DisconnectTargetRequest {
   string serialNumber = 1;
 }
 
-message TargetCountMsg {
+message DisconnectTargetReply {
   TargetResult result = 1;
-  int32 count = 2;
 }
 
 message TargetInfoMsg {
-  TargetResult result = 1;
-  string serialNumber = 2;
-  string address = 3;
-  string connectionType = 4;
-  TargetStatus status = 5;
-}
-
-message DisconnectTargetMsg {
-  TargetResult result = 1;
+  string serialNumber = 1;
+  string address = 2;
+  string connectionType = 3;
+  TargetStatus status = 4;
 }

@@ -28,7 +28,7 @@ public class TargetManagerImpl : ITargetManager
         return all;
     }
 
-    public async Task<TargetInfo> QueryTargetInfosAsync(QueryType type, int index)
+    public async Task<List<TargetInfo>> QueryTargetInfosAsync(QueryType type, int maxCount)
     {
         List<TargetInfo> infos = new List<TargetInfo>();
         
@@ -41,7 +41,7 @@ public class TargetManagerImpl : ITargetManager
             providers.ForEach(async (provider) => infos.AddRange(await provider.QueryDisconnectedInfosAsync()));
         }
 
-        return infos[index];
+        return infos.Slice(0, maxCount);
     }
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)

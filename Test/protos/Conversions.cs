@@ -1,3 +1,5 @@
+using Grpc.Core;
+
 namespace Test.protos;
 
 public static class Conversions
@@ -15,22 +17,13 @@ public static class Conversions
         return _queryTypeToImpl[type];
     }
     
-    public static proto.TargetInfoMsg ConvertTargetInfo(TargetInfo info, proto.TargetResult result)
+    public static proto.TargetInfoMsg ConvertTargetInfo(TargetInfo info)
     {
         return new proto.TargetInfoMsg
         {
-            Result         = result,
             Address        = info.address,
             SerialNumber   = info.serialNumber,
             ConnectionType = info.connectionType,
-        };
-    }
-
-    public static proto.TargetInfoMsg GetErrorTargetInfoMsg(proto.TargetResult result)
-    {
-        return new proto.TargetInfoMsg
-        {
-            Result = result
         };
     }
 }
