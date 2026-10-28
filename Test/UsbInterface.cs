@@ -29,6 +29,7 @@ public class UsbInterface : IDisposable
 
     public void Dispose()
     {
+        device.Close();
         device.Dispose();
     }
 

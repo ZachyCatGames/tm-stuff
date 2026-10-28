@@ -50,8 +50,6 @@ public class HtcsSocketManager : IDisposable
         {
             return new SockAddrHtcs(HtcsAddressFamily.Htcs, peerName, portName);
         }
-
-        public virtual void Cleanup() {}
     }
 
     class TargetPort : HtcsSocket
@@ -77,6 +75,10 @@ public class HtcsSocketManager : IDisposable
 
         public override void Dispose()
         {
+#if HTCS_TASK_DEBUG
+            Console.WriteLine("[htcs] Closing fd={0}", fd);
+#endif
+            /* Cleanup host socket. */
             hostSocket.Close();
             hostSocket.Dispose();
         }
@@ -103,13 +105,6 @@ public class HtcsSocketManager : IDisposable
                 throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
             }
         }
-
-        public override void Cleanup()
-        {
-            /* Close the host socket. */
-            hostSocket.Close();
-            hostSocket.Dispose();
-        }
     }
 
     // 
@@ -125,6 +120,10 @@ public class HtcsSocketManager : IDisposable
 
         public override void Dispose()
         {
+#if HTCS_TASK_DEBUG
+            Console.WriteLine("[htcs] Closing fd={0}", fd);
+#endif
+            /* Cleanup host socket. */
             hostSocket.Close();
             hostSocket.Dispose();
         }
@@ -157,12 +156,6 @@ public class HtcsSocketManager : IDisposable
                 throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
             }
         }
-
-        public override void Cleanup()
-        {
-            /* Close the host socket. */
-            hostSocket.Close();
-        }
     }
 
     readonly FileDescriptorManager<HtcsSocket> sockets = new(SocketCountMax);
@@ -185,6 +178,7 @@ public class HtcsSocketManager : IDisposable
         foreach (int fd in used)
         {
             Debug.Assert(sockets[fd] != null);
+            
             sockets[fd].Dispose();
             sockets[fd] = null;
         }

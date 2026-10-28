@@ -51,16 +51,19 @@ public class TaskList
 
     public void RemoveIf(Func<ServiceTask, bool> pred)
     {
+        List<ServiceTask> toRemove = new();
         foreach (var lvl in list)
         {
             foreach (var task in lvl)
             {
                 if (pred(task))
                 {
-                    this.RemoveTask(task);
+                    toRemove.Add(task);
                 }
             }
         }
+        
+        toRemove.ForEach((t) => this.RemoveTask(t));
     }
 
     public void RemoveAll()

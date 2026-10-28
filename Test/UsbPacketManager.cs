@@ -26,8 +26,9 @@ public class UsbPacketManager : IPacketManager
     private BeaconPacket? beaconPacket;
     
     private bool isConnected;
-    private long isDone;
+    private bool isCommsDisabled;
     private long recvDone, sendDone;
+    private CancellationTokenSource cancelSrc = new();
 
     public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
@@ -38,7 +39,7 @@ public class UsbPacketManager : IPacketManager
 
         beaconPacket = null;
         isConnected = false;
-        isDone = 0;
+        isCommsDisabled = false;
         recvDone = 0;
         sendDone = 0;
 
@@ -50,7 +51,7 @@ public class UsbPacketManager : IPacketManager
         /* Disconnect if we're connected. */
         if (isConnected)
             Disconnect();
-        
+
         /* Dispose the USB Interface. */
         usbIf.Dispose();
     }
@@ -106,17 +107,14 @@ public class UsbPacketManager : IPacketManager
         Debug.Assert(isConnected);
         
         /* Cancel current transfers. */
-        Interlocked.Exchange(ref isDone, 1);
+        cancelSrc.Cancel();
         usbIf.Cancel();
         
         /* Wait for both threads to exit. */
         /* TODO: This "should" probably use async semaphores or similar. */
         while (Interlocked.Read(ref recvDone) == 0) { }
         while (Interlocked.Read(ref sendDone) == 0) { }
-
-        /* Tell the target we're done. */
-        GetBeaconPacketImpl(FinalizeServiceId);
-
+        
         /* Tell our parent that we're done. */
         parent.NotifyDisconnect(this);
     }
@@ -167,7 +165,13 @@ public class UsbPacketManager : IPacketManager
     
     private void RecvPacketImpl(ref Packet pkt)
     {
-        Error err = usbIf.Read(pkt.GetBuffer(), Packet.PacketMaxSize, 0, out int sizeRead);
+        /* Receive the packet header. */
+        Error err = usbIf.Read(pkt.GetBuffer(), 0, Packet.PacketMaxSize, out int sizeRead);
+        if (err != Error.Success)
+        {
+            Console.WriteLine("USB Write Error: {0}", err);
+            return;
+        }
     }
 
     private void SendPacketImpl(Packet pkt)
@@ -202,13 +206,23 @@ public class UsbPacketManager : IPacketManager
         while (true)
         {
             /* Pop a packet. */
-            Packet pkt = packetQueue.Take();
+            Packet pkt;
+            try
+            {
+                pkt = packetQueue.Take(cancelSrc.Token);
+            }
+            catch(OperationCanceledException)
+            {
+                Interlocked.Exchange(ref sendDone, 1);
+                return;
+            }
+            
             //File.Open(String.Format("send_{0}", j), FileMode.Create).Write(pkt.GetBuffer());
             //pkt.Print();
 
             /* Send it. */
             SendPacketImpl(pkt);
-            if (Interlocked.Read(ref isDone) != 0)
+            if (cancelSrc.Token.IsCancellationRequested)
             {
                 Interlocked.Exchange(ref sendDone, 1);
                 return;
@@ -229,7 +243,7 @@ public class UsbPacketManager : IPacketManager
 
             /* Wait for a message. */
             RecvPacketImpl(ref pkt);
-            if (Interlocked.Read(ref isDone) != 0)
+            if (cancelSrc.Token.IsCancellationRequested)
             {
                 Interlocked.Exchange(ref recvDone, 1);
                 return;

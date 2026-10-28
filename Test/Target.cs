@@ -80,10 +80,12 @@ public class Target : IDisposable
         /* Finalize the htcs socket manager. */
         htcsManager.Dispose();
         
-        /* Finalize the packet manager. */
+        /* Tear down the rest of packet manager. */
         packetManager.Dispose();
-    }
 
+        //Console.WriteLine("{0} disconnected", Info.serialNumber);
+    }
+    
     public void Disconnect()
     {
         DisconnectImpl();
@@ -92,7 +94,14 @@ public class Target : IDisposable
     public async Task DisconnectAsync()
     {
         /* Run the disconnect routine in a thread. */
-        var thread = new Thread(DisconnectImpl);
+        var thread = new Thread(() =>
+        {
+            /* Disconnect from the target. */
+            DisconnectImpl();
+        
+            /* Signal that we've finished. */
+            doneSignal.Release();
+        });
         thread.Start();
         
         /* Wait for it to finish. */

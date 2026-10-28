@@ -46,6 +46,13 @@ public class TargetManagerImpl : ITargetManager
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)
     {
+        /* Return the target if it already exists. */
+        /* TODO: maybe this should return AlreadyConnected? */
+        if (targets.ContainsKey(serialNumber))
+        {
+            return targets[serialNumber].Info;
+        }
+        
         foreach (var provider in providers)
         {
             Target? targ = await provider.ConnectAsync(serialNumber);

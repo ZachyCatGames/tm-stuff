@@ -21,17 +21,19 @@ public class HostFilesystemManager : IDisposable {
     
     class FsItem : IDisposable
     {
+        protected int fd;
+        
         readonly public DescriptorType type;
         
         readonly public string path;
         
-        public FsItem(DescriptorType t, string p)
+        public FsItem(int fd, DescriptorType t, string p)
         {
             this.type = t;
             this.path = p;
         }
 
-        public void Dispose() {}
+        public virtual void Dispose() {}
     }
     
     class FileItem : FsItem
@@ -40,7 +42,7 @@ public class HostFilesystemManager : IDisposable {
         private FileAccess amode;
         
         // guess mode is FsOpenMode?
-        public FileItem(string p, UInt32 mode) : base(DescriptorType.File, p) {
+        public FileItem(int fd, string p, UInt32 mode) : base(fd, DescriptorType.File, p) {
             /* Determine the access mode. */
             int amodei = 0;
             if ((mode & 1) != 0)
@@ -68,8 +70,12 @@ public class HostFilesystemManager : IDisposable {
             }
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
+#if HTCS_TASK_DEBUG
+            Console.WriteLine("[htcs] Closing fd={0}", fd);
+#endif
+            
             Close();
         }
         
@@ -157,7 +163,7 @@ public class HostFilesystemManager : IDisposable {
         private readonly bool noFileSizes = false;
         
         // Assuming mode is fs DirOpenMode?
-        public DirectoryItem(string path, UInt32 mode) : base(DescriptorType.Directory, path)
+        public DirectoryItem(int fd, string path, UInt32 mode) : base(fd, DescriptorType.Directory, path)
         {
             readDirInfo  = (mode & 1) != 0;
             readFileInfo = (mode & 2) != 0;
@@ -322,20 +328,26 @@ public class HostFilesystemManager : IDisposable {
     }
     
     public Int64 OpenFile(string path, UInt32 mode) {
-        /* Try to open the file. */
-        Console.WriteLine("{0} OpenFile", GetRealPath(path));
-        var file = new FileItem(GetRealPath(path), mode);
-        
         /* Register the file. */
-        int fd = fsItems.RegisterNewT(file);
+        int fd = fsItems.AllocateFileDescriptor();
         if (fd < 0)
             throw new HioException(HioErrorCode.AllocationFailed);
 
+        /* Try to open the file. */
+#if HIO_TASK_DEBUG
+        Console.WriteLine("[hio] OpenFile: {0}, fd={1}", path, fd);
+#endif
+        var file = new FileItem(fd, GetRealPath(path), mode);
+        fsItems[fd] = file;
+        
         return fd;
     }
     
     public void CloseFile(int fd)
     {
+#if HIO_TASK_DEBUG
+        Console.WriteLine("[hio] Closing fd={0}", fd);
+#endif
         /* Close the file. */
         GetFileItemOrThrowNotFound(fd).Close();
         
@@ -478,13 +490,17 @@ public class HostFilesystemManager : IDisposable {
     
     public int OpenDirectory(string path, UInt32 mode)
     {
-        /* Open the directory. */
-        var dir = new DirectoryItem(GetRealPath(path), mode);
-        
         /* Register the directory object. */
-        int fd = fsItems.RegisterNewT(dir);
+        int fd = fsItems.AllocateFileDescriptor();
         if (fd < 0)
             throw new HioException(HioErrorCode.AllocationFailed);
+        
+        /* Open the directory. */
+        var dir = new DirectoryItem(fd, GetRealPath(path), mode);
+        
+#if HIO_TASK_DEBUG
+        Console.WriteLine("[hio] OpenDirectory: {0}, fd={1}", path, fd);
+#endif
 
         return fd;
     }
