@@ -1,6 +1,7 @@
 
 
 using System.Data.SqlTypes;
+using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
@@ -10,7 +11,7 @@ using Test.htcs;
 
 namespace Test.hio;
 
-public class HostFilesystemManager {
+public class HostFilesystemManager : IDisposable {
     private enum DescriptorType
     {
         None,
@@ -18,7 +19,7 @@ public class HostFilesystemManager {
         Directory
     }
     
-    class FsItem
+    class FsItem : IDisposable
     {
         readonly public DescriptorType type;
         
@@ -29,6 +30,8 @@ public class HostFilesystemManager {
             this.type = t;
             this.path = p;
         }
+
+        public void Dispose() {}
     }
     
     class FileItem : FsItem
@@ -63,6 +66,11 @@ public class HostFilesystemManager {
                 Console.WriteLine(e);
                 throw new HioException(HioErrorCode.TargetLocked);
             }
+        }
+
+        public void Dispose()
+        {
+            Close();
         }
         
         public void Close()
@@ -295,6 +303,23 @@ public class HostFilesystemManager {
     }
     
     public HostFilesystemManager() {}
+
+    public void Dispose()
+    {
+        CloseAll();
+    }
+
+    public void CloseAll()
+    {
+        /* Close all used file descriptors. */
+        var used = fsItems.GetUsedDescriptors();
+        foreach (int fd in used)
+        {
+            Debug.Assert(fsItems[fd] != null);
+            fsItems[fd].Dispose();
+            fsItems[fd] = null;
+        }
+    }
     
     public Int64 OpenFile(string path, UInt32 mode) {
         /* Try to open the file. */
