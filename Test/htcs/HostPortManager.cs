@@ -42,7 +42,7 @@ public class HostPortManager
         hostPorts.AddLast(new HostPort(ip, port, htcsPort, htcsPeer));
     }
 
-    public async Task ConnectAsync(Socket sock, SockAddrHtcs addr)
+    public ValueTask ConnectAsync(Socket sock, SockAddrHtcs addr, CancellationToken ct)
     {
         /* Find the port. */
         HostPort? port = this.FindPortByName(addr.portName);
@@ -52,7 +52,7 @@ public class HostPortManager
         }
 
         /* Try to connect to the host port. */
-        await sock.ConnectAsync(new IPEndPoint(port.hostIp, port.hostTcpPort));
+        return sock.ConnectAsync(new IPEndPoint(port.hostIp, port.hostTcpPort), ct);
     }
 
     public bool DoesPortNameExist(string portName)

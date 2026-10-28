@@ -81,11 +81,11 @@ public class HtcsSocketManager
             this.isListening = true;
         }
 
-        public Task<Socket> HostAcceptAsync()
+        public ValueTask<Socket> HostAcceptAsync(CancellationToken ct)
         {
             try {
                 /* Wait for the host socket to accept. */
-                return hostSocket.AcceptAsync();
+                return hostSocket.AcceptAsync(ct);
             }
             catch(SocketException excpt) {
                 throw new HtcsException(excpt.SocketErrorCode);
@@ -114,11 +114,11 @@ public class HtcsSocketManager
             this.hostSocket = hostSock;
         }
 
-        public async Task<int> RecvAsync(ArraySegment<byte> buf, int flags)
+        public async ValueTask<int> RecvAsync(ArraySegment<byte> buf, int flags, CancellationToken ct)
         {
             try {
                 /* Receive buffer. */
-                return await hostSocket.ReceiveAsync(buf);
+                return await hostSocket.ReceiveAsync(buf, ct);
             }
             catch(SocketException excpt) {
                 //Console.WriteLine(excpt.SocketErrorCode);
@@ -129,11 +129,11 @@ public class HtcsSocketManager
             }
         }
 
-        public async Task<int> SendAsync(ArraySegment<byte> buf, int flags)
+        public async ValueTask<int> SendAsync(ArraySegment<byte> buf, int flags, CancellationToken ct)
         {
             try {
                 /* Send the buffer. */
-                return await hostSocket.SendAsync(buf);
+                return await hostSocket.SendAsync(buf, ct);
             }
             catch(SocketException excpt) {
                 throw new HtcsException(excpt.SocketErrorCode);
@@ -244,7 +244,7 @@ public class HtcsSocketManager
         port.HostListen(backlogCount);
     }
 
-    public async Task<Tuple<int, SockAddrHtcs>> AcceptAsync(int fd)
+    public async ValueTask<(int, SockAddrHtcs)> AcceptAsync(int fd, CancellationToken ct)
     {
         /* Get the socket. */
         HtcsSocket? sockRaw = sockets[fd];
@@ -263,7 +263,7 @@ public class HtcsSocketManager
             throw new HtcsException(ErrorCode.HTCS_EINVAL);
 
         /* Wait for the host socket. */
-        Socket newHostSock = await port.HostAcceptAsync();
+        Socket newHostSock = await port.HostAcceptAsync(ct);
 
         /* Allocate a file desc for the new socket. */
         int newFd = this.AllocateFileDescriptor();
@@ -274,7 +274,7 @@ public class HtcsSocketManager
         return new (newFd, port.GetAddress());
     }
 
-    public async Task ConnectAsync(int fd, SockAddrHtcs addr) {
+    public async ValueTask ConnectAsync(int fd, SockAddrHtcs addr, CancellationToken ct) {
         /* Get the socket. */
         HtcsSocket? sockRaw = this.sockets[fd];
 
@@ -286,13 +286,13 @@ public class HtcsSocketManager
 
         /* Try to connect to the port. */
         Socket hostSock = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        await this.hostPortMgr.ConnectAsync(hostSock, addr);
+        await this.hostPortMgr.ConnectAsync(hostSock, addr, ct);
 
         /* Create a new session socket. */
         this.sockets[fd] = new SessionSocket(fd, addr, hostSock);
     }
 
-    public async Task<int> RecvPacketAsync(int fd, ArraySegment<byte> buffer, int flags)
+    public async ValueTask<int> RecvPacketAsync(int fd, ArraySegment<byte> buffer, int flags, CancellationToken ct)
     {
         /* Grab the socket. */
         HtcsSocket? sockRaw = sockets[fd];
@@ -307,10 +307,10 @@ public class HtcsSocketManager
         var session = (SessionSocket)sockRaw;
 
         /* Wait for a packet. */
-        return await session.RecvAsync(buffer, flags);
+        return await session.RecvAsync(buffer, flags, ct);
     }
 
-    public async Task<int> SendPacketAsync(int fd, ArraySegment<byte> buffer, int flags)
+    public async ValueTask<int> SendPacketAsync(int fd, ArraySegment<byte> buffer, int flags, CancellationToken ct)
     {
         /* Grab the socket. */
         HtcsSocket? sockRaw = sockets[fd];
@@ -325,6 +325,6 @@ public class HtcsSocketManager
         var session = (SessionSocket)sockRaw;
 
         /* Wait for a packet. */
-        return await session.SendAsync(buffer, flags);
+        return await session.SendAsync(buffer, flags, ct);
     }
 }

@@ -28,7 +28,7 @@ public class HtcsSendTask : ServiceTask
         Int32 retval = 0;
         try
         {
-            retval = await htcsManager.SendPacketAsync(fd, buf, flags);
+            retval = await htcsManager.SendPacketAsync(fd, buf, flags, GetCancelToken());
         }
         catch (HtcsException excpt)
         {
