@@ -62,4 +62,18 @@ public class FileDescriptorManager<T> {
         get => objects[i];
         set => objects[i] = value;
     }
+
+    public List<int> GetUsedDescriptors()
+    {
+        var list = new List<int>();
+        for (int i = 0; i < MaxObjectCount; i++)
+        {
+            if (objects[i] != null)
+            {
+                list.Add(i);
+            }
+        }
+
+        return list;
+    }
 }
