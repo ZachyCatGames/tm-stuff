@@ -14,7 +14,9 @@ service TargetService {
   rpc Close (CloseTargetRequest) returns (CloseTargetReply);
 
   /* HTCS Port Management. */
-  //rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
+  rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
+  rpc QueryHtcsPortCount(QueryHtcsPortCountRequest) returns (QueryHtcsPortCountReply);
+  rpc QueryHtcsPortInfos(QueryHtcsPortInfosRequest) returns (QueryHtcsPortInfosReply);
 }
 
 message ConnectTargetRequest {
@@ -49,4 +51,22 @@ message CloseTargetRequest {
 
 message CloseTargetReply {
   TargetResult result = 1;
+}
+
+message QueryHtcsPortCountRequest {
+  /* ... */
+}
+
+message QueryHtcsPortCountReply {
+  TargetResult result = 1;
+  int32 count = 2;
+}
+
+message QueryHtcsPortInfosRequest {
+  int32 maxCount = 1;
+}
+
+message QueryHtcsPortInfosReply {
+  TargetResult result = 1;
+  repeated htcs.PortInfo infos = 2;
 }

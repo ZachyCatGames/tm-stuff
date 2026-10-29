@@ -123,6 +123,12 @@ public class Target : IDisposable
         /* Notify manager. */
         parent.NotifyOnClose(this);
     }
+
+    public PortInfo? QueryHtcsPortByName(string portName) => htcsManager.GetPortInfoByName(portName);
+
+    public int QueryHtcsPortCount() => htcsManager.PortCount;
+
+    public List<PortInfo> QueryHtcsPortInfos(int maxCount) => htcsManager.GetPortInfos(maxCount);
     
     public IPacketManager GetPacketManager()
     {

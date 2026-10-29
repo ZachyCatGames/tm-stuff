@@ -8,6 +8,11 @@ enum TargetResult {
   TargetResult_Success = 0;
   TargetResult_TargetNotFound = 1;
   TargetResult_NotConnected = 2;
+  TargetResult_InvalidSize = 3;
+  TargetResult_InvalidIndex = 4;
+  
+  /* HTCS results. */
+  TargetResult_PortNotFound = 1000;
 }
 
 enum TargetStatus {
