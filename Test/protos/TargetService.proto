@@ -1,56 +1,20 @@
 syntax = "proto3";
 
-option csharp_namespace = "Test.proto";
+option csharp_namespace = "Test";
 
-package test.proto;
+package test;
+
+import "TargetTypes.proto";
+import "HtcsTypes.proto";
 
 service TargetService {
-  /* Target Info. */
-  rpc QueryTargetCount (QueryTargetCountRequest) returns (QueryTargetCountReply);
-  rpc QueryTargetInfo (QueryTargetInfoRequest) returns (QueryTargetInfoReply);
-
   /* Connect / Disconnect. */
-  rpc ConnectTarget (ConnectTargetRequest) returns (ConnectTargetReply);
-  rpc DisconnectTarget (DisconnectTargetRequest) returns (DisconnectTargetReply);
+  rpc Connect (ConnectTargetRequest) returns (ConnectTargetReply);
+  rpc Disconnect (DisconnectTargetRequest) returns (DisconnectTargetReply);
+  rpc Close (CloseTargetRequest) returns (CloseTargetReply);
 
   /* HTCS Port Management. */
-
-}
-
-enum TargetResult {
-  TargetResult_Success = 0;
-  TargetResult_TargetNotFound = 1;
-}
-
-enum TargetStatus {
-  TargetStatus_Disconnected = 0;
-  TargetStatus_Connected = 1;
-}
-
-enum QueryType {
-  QueryType_Disconnected = 0;
-  QueryType_Connected = 1;
-  QueryType_All = 2;
-}
-
-message QueryTargetCountRequest {
-  QueryType type = 1;
-  /* ... */
-}
-
-message QueryTargetCountReply {
-  TargetResult result = 1;
-  int32 count = 2;
-}
-
-message QueryTargetInfoRequest {
-  QueryType type = 1;
-  int32 maxCount = 2;
-}
-
-message QueryTargetInfoReply {
-  TargetResult result = 1;
-  repeated TargetInfoMsg targets = 2;
+  //rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
 }
 
 message ConnectTargetRequest {
@@ -59,20 +23,30 @@ message ConnectTargetRequest {
 
 message ConnectTargetReply {
   TargetResult result = 1;
-  TargetInfoMsg info = 2;
+  TargetInfo info = 2;
 }
 
 message DisconnectTargetRequest {
-  string serialNumber = 1;
+  /* ... */
 }
 
 message DisconnectTargetReply {
   TargetResult result = 1;
 }
 
-message TargetInfoMsg {
-  string serialNumber = 1;
-  string address = 2;
-  string connectionType = 3;
-  TargetStatus status = 4;
+message QueryHtcsPortByNameRequest {
+  string portName = 1;
+}
+
+message QueryHtcsPortByNameReply {
+  TargetResult result = 1;
+  htcs.PortInfo info  = 2;
+}
+
+message CloseTargetRequest {
+  /* ... */
+}
+
+message CloseTargetReply {
+  TargetResult result = 1;
 }

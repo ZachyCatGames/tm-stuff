@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option csharp_namespace = "Test.htcs";
+
+package test.htcs;
+
+message PortInfo {
+  string peerName = 1;
+  string portName = 2;
+  uint32 ip = 3;
+  uint32 port = 4;
+}

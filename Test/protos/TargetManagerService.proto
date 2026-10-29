@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+option csharp_namespace = "Test";
+
+package test;
+
+import "TargetTypes.proto";
+
+service TargetManagerService {
+  /* Target Info. */
+  rpc QueryTargetCount (QueryTargetCountRequest) returns (QueryTargetCountReply);
+  rpc QueryTargetInfo (QueryTargetInfoRequest) returns (QueryTargetInfoReply);
+}
+
+message QueryTargetCountRequest {
+  QueryType type = 1;
+  /* ... */
+}
+
+message QueryTargetCountReply {
+  TargetResult result = 1;
+  int32 count = 2;
+}
+
+message QueryTargetInfoRequest {
+  QueryType type = 1;
+  int32 maxCount = 2;
+}
+
+message QueryTargetInfoReply {
+  TargetResult result = 1;
+  repeated TargetInfo targets = 2;
+}
