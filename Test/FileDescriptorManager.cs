@@ -76,4 +76,12 @@ public class FileDescriptorManager<T> {
 
         return list;
     }
+
+    public void Clear()
+    {
+        for (int i = 0; i < MaxObjectCount; i++)
+        {
+            objects[i] = default(T);
+        }
+    }
 }
