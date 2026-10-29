@@ -21,6 +21,9 @@
   <ItemGroup>
     
     <Protobuf Include="protos\TargetService.proto" GrpcServices="Server" />
+    <Protobuf Include="protos\TargetManagerService.proto" GrpcServices="Server" />
+    <Protobuf Include="protos\TargetTypes.proto" GrpcServices="None" />
+    <Protobuf Include="protos\HtcsTypes.proto" GrpcServices="None" />
   </ItemGroup>
 
 </Project>

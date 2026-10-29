@@ -6,6 +6,8 @@ namespace Test;
 
 public class Target : IDisposable
 {
+    private ITargetManager parent;
+    
     private ServiceManager serviceManager;
     private IPacketManager packetManager;
 
@@ -27,8 +29,10 @@ public class Target : IDisposable
     public string Address { get; }
     public string ConnectionType { get; }
 
-    public Target(ServiceManager serviceManager, IPacketManager packetManager)
+    public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
     {
+        this.parent = parent;
+        
         this.packetManager  = packetManager;
         this.serviceManager = serviceManager;
         
@@ -50,9 +54,9 @@ public class Target : IDisposable
         serviceManager.RegisterService(envService);
         
         Info            = packetManager.GetTargetInfo();
-        SerialNumber    = Info.serialNumber;
-        Address         = Info.address;
-        ConnectionType  = Info.connectionType;
+        SerialNumber    = Info.SerialNumber;
+        Address         = Info.Address;
+        ConnectionType  = Info.ConnectionType;
     }
 
     public void Dispose()
@@ -82,6 +86,9 @@ public class Target : IDisposable
         
         /* Tear down the rest of packet manager. */
         packetManager.Dispose();
+        
+        /* Notify manager. */
+        parent.NotifyOnDisconnect(this);
 
         //Console.WriteLine("{0} disconnected", Info.serialNumber);
     }
@@ -109,6 +116,12 @@ public class Target : IDisposable
         
         /* Join it. */
         thread.Join();
+    }
+
+    public void Close()
+    {
+        /* Notify manager. */
+        parent.NotifyOnClose(this);
     }
     
     public IPacketManager GetPacketManager()

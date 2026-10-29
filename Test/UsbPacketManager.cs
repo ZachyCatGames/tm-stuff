@@ -75,9 +75,9 @@ public class UsbPacketManager : IPacketManager
         string sn = pkt != null ? pkt.Value.SN : "Unknown";
         return new TargetInfo()
         {
-            serialNumber   = sn,
-            address        = GetUsbDeviceNumber().ToString(),
-            connectionType = "USB"
+            SerialNumber   = sn,
+            Address        = GetUsbDeviceNumber().ToString(),
+            ConnectionType = "USB"
         };
     }
 

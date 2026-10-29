@@ -7,13 +7,18 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     const int SdkProductId = 0x3000;
     const int SdkVendorId = 0x57E;
 
+    private ITargetManager parent;
+
     private Dictionary<int, Target> connectedTargets = new();
 
     private UsbContext context;
 
 
-    public UsbTargetProvider()
+    public UsbTargetProvider(ITargetManager parent)
     {
+        this.parent = parent;
+        
+        /* Setup USB Context */
         context = new UsbContext();
     }
 
@@ -50,7 +55,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         var serviceMgr = new ServiceManager();
         var usbif      = new UsbInterface(device);
         var pktMgr     = new UsbPacketManager(usbif, serviceMgr, this);
-        var targ       = new Target(serviceMgr, pktMgr);
+        var targ       = new Target(parent, serviceMgr, pktMgr);
         
         isNew = true;
         return targ;
@@ -127,7 +132,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         foreach (var targ in list)
         {
             TargetInfo info = targ.Info;
-            if (info.serialNumber == serialNumber)
+            if (info.SerialNumber == serialNumber)
             {
                 /* Connect to it. */
                 targ.Connect();

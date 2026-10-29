@@ -1,17 +1,22 @@
+using System.Diagnostics;
+
 namespace Test;
 
 public class TargetManagerImpl : ITargetManager
 {
-    private Dictionary<string, Target> targets;
-    private List<ITargetProvider> providers;
+    private class TargetRef
+    {
+        public Target target;
+        public int refCount;
+    }
+    
+    private Dictionary<string, TargetRef> targets = new();
+    private List<ITargetProvider> providers = new();
 
     public TargetManagerImpl()
     {
-        targets   = new Dictionary<string, Target>();
-        providers = new List<ITargetProvider>();
-        
         /* Create providers for USB and TICS (TODO). */
-        providers.Add(new UsbTargetProvider());
+        providers.Add(new UsbTargetProvider(this));
     }
     
     public async Task<int> QueryTargetCountAsync(QueryType type)
@@ -50,7 +55,9 @@ public class TargetManagerImpl : ITargetManager
         /* TODO: maybe this should return AlreadyConnected? */
         if (targets.ContainsKey(serialNumber))
         {
-            return targets[serialNumber].Info;
+            var t = targets[serialNumber];
+            t.refCount++;
+            return t.target.Info;
         }
         
         foreach (var provider in providers)
@@ -58,27 +65,33 @@ public class TargetManagerImpl : ITargetManager
             Target? targ = await provider.ConnectAsync(serialNumber);
             if (targ != null)
             {
-                targets[targ.Info.serialNumber] = targ;
+                targets[targ.Info.SerialNumber] = new TargetRef
+                {
+                    target = targ,
+                    refCount = 1
+                };
                 return targ.Info;
             }
         }
         return null;
     }
 
-    public async Task<bool> DisconnectTargetAsync(string serialNumber)
+    public void NotifyOnDisconnect(Target targ)
     {
-        if (targets.ContainsKey(serialNumber))
-        {
-            /* Disconnect the target. */
-            await targets[serialNumber].DisconnectAsync();
-            
-            /* Remove it from our list of targets. */
-            targets.Remove(serialNumber);
-            
-            return true;
-        }
+        string sn = targ.Info.SerialNumber;
+        Debug.Assert(targets.ContainsKey(sn));
+        
+        /* Remove the target from our dict. */
+        targets.Remove(sn);
+    }
 
-        return false;
+    public void NotifyOnClose(Target targ)
+    {
+        string sn = targ.Info.SerialNumber;
+        Debug.Assert(targets.ContainsKey(sn));
+        
+        /* Decrease ref count. */
+        targets[sn].refCount--;
     }
 
 }
