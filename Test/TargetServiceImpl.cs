@@ -17,7 +17,7 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
         var info = await manager.ConnectTargetAsync(request.SerialNumber);
         if (info == null)
             return new ConnectTargetReply { Result = TargetResult.TargetNotFound };
-
+        
         return new ConnectTargetReply
         {
             Result = TargetResult.Success,
@@ -27,6 +27,8 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
 
     public override async Task<DisconnectTargetReply> Disconnect(DisconnectTargetRequest request, ServerCallContext context)
     {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
         if (target == null)
             return new DisconnectTargetReply { Result = TargetResult.NotConnected };
         
@@ -39,21 +41,10 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
         };
     }
 
-    public override async Task<CloseTargetReply> Close(CloseTargetRequest request, ServerCallContext context)
-    {
-        if (target == null)
-            return new CloseTargetReply { Result = TargetResult.NotConnected };
-        
-        /* Close this reference. */
-        target.Close();
-        
-        return new CloseTargetReply { 
-            Result = TargetResult.Success
-        };
-    }
-
     public override async Task<QueryHtcsPortByNameReply> QueryHtcsPortByName(QueryHtcsPortByNameRequest request, ServerCallContext context)
     {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
         if (target == null)
             return new QueryHtcsPortByNameReply { Result = TargetResult.NotConnected };
         
@@ -69,6 +60,8 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
     
     public override async Task<QueryHtcsPortCountReply> QueryHtcsPortCount(QueryHtcsPortCountRequest request, ServerCallContext context)
     {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
         if (target == null)
             return new QueryHtcsPortCountReply { Result = TargetResult.NotConnected };
         
@@ -81,6 +74,8 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
     
     public override async Task<QueryHtcsPortInfosReply> QueryHtcsPortInfos(QueryHtcsPortInfosRequest request, ServerCallContext context)
     {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
         if (target == null)
             return new QueryHtcsPortInfosReply { Result = TargetResult.NotConnected };
 

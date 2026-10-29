@@ -118,12 +118,6 @@ public class Target : IDisposable
         thread.Join();
     }
 
-    public void Close()
-    {
-        /* Notify manager. */
-        parent.NotifyOnClose(this);
-    }
-
     public PortInfo? QueryHtcsPortByName(string portName) => htcsManager.GetPortInfoByName(portName);
 
     public int QueryHtcsPortCount() => htcsManager.PortCount;

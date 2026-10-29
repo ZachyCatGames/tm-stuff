@@ -11,7 +11,6 @@ service TargetService {
   /* Connect / Disconnect. */
   rpc Connect (ConnectTargetRequest) returns (ConnectTargetReply);
   rpc Disconnect (DisconnectTargetRequest) returns (DisconnectTargetReply);
-  rpc Close (CloseTargetRequest) returns (CloseTargetReply);
 
   /* HTCS Port Management. */
   rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
@@ -29,7 +28,7 @@ message ConnectTargetReply {
 }
 
 message DisconnectTargetRequest {
-  /* ... */
+  string serialNumber = 1;
 }
 
 message DisconnectTargetReply {
@@ -37,7 +36,8 @@ message DisconnectTargetReply {
 }
 
 message QueryHtcsPortByNameRequest {
-  string portName = 1;
+  string serialNumber = 1;
+  string portName = 2;
 }
 
 message QueryHtcsPortByNameReply {
@@ -46,7 +46,7 @@ message QueryHtcsPortByNameReply {
 }
 
 message CloseTargetRequest {
-  /* ... */
+  string serialNumber = 1;
 }
 
 message CloseTargetReply {
@@ -54,7 +54,7 @@ message CloseTargetReply {
 }
 
 message QueryHtcsPortCountRequest {
-  /* ... */
+  string serialNumber = 1;
 }
 
 message QueryHtcsPortCountReply {
@@ -63,7 +63,8 @@ message QueryHtcsPortCountReply {
 }
 
 message QueryHtcsPortInfosRequest {
-  int32 maxCount = 1;
+  string serialNumber = 1;
+  int32 maxCount = 2;
 }
 
 message QueryHtcsPortInfosReply {
