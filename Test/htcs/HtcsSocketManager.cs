@@ -57,6 +57,7 @@ public class HtcsSocketManager : IDisposable
         public bool isListening;
 
         Socket hostSocket;
+        private IPEndPoint ep;
 
         public TargetPort(int fd, SockAddrHtcs addr) : base(fd, addr)
         {
@@ -70,7 +71,8 @@ public class HtcsSocketManager : IDisposable
             hostSocket.Bind(new IPEndPoint(0x0100007F, 0));
 
             /* Log host socket info. */
-            Console.WriteLine(((IPEndPoint)hostSocket.LocalEndPoint).Port);
+            ep = (IPEndPoint)hostSocket.LocalEndPoint;
+            Console.WriteLine(ep.Port);
         }
 
         public override void Dispose()
@@ -104,6 +106,11 @@ public class HtcsSocketManager : IDisposable
             catch(ObjectDisposedException excpt) {
                 throw new HtcsException(ErrorCode.HTCS_ECONNABORTED);
             }
+        }
+        
+        public PortInfo Info
+        {
+            get => new PortInfo { Ip = 0x0100007F, Port = (ushort)ep.Port, PeerName = peerName, PortName = portName };
         }
     }
 
@@ -160,6 +167,9 @@ public class HtcsSocketManager : IDisposable
 
     readonly FileDescriptorManager<HtcsSocket> sockets = new(SocketCountMax);
     readonly HostPortManager hostPortMgr;
+    
+    private readonly List<TargetPort> targetPorts = new();
+    private readonly List<SessionSocket> sessions = new();
 
     public HtcsSocketManager(HostPortManager hpm)
     {
@@ -173,30 +183,37 @@ public class HtcsSocketManager : IDisposable
 
     public void CloseAll()
     {
+        /* Clear both lists. */
+        targetPorts.ForEach((s) => s.Dispose());
+        sessions.ForEach((s) => s.Dispose());
+        targetPorts.Clear();
+        sessions.Clear();
+        
         /* Close all used file descriptors. */
-        var used = sockets.GetUsedDescriptors();
-        foreach (int fd in used)
+        sockets.Clear();
+    }
+
+    int AllocateFileDescriptor() => this.sockets.AllocateFileDescriptor();
+
+    TargetPort? FindPortByName(string portName) => targetPorts.Find((sock) => sock.portName == portName);
+
+    bool DoesPortNameExist(string portName) => hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
+    
+    public int PortCount => targetPorts.Count;
+    
+    public PortInfo? GetPortInfoByName(string portName)
+    {
+        var port = FindPortByName(portName);
+        if (port is not null)
         {
-            Debug.Assert(sockets[fd] != null);
-            
-            sockets[fd].Dispose();
-            sockets[fd] = null;
+            return port.Info;
         }
+
+        return null;
     }
 
-    int AllocateFileDescriptor()
-    {
-        return this.sockets.AllocateFileDescriptor();
-    }
-
-    TargetPort? FindPortByName(string portName)
-    {
-        return (TargetPort?)this.sockets.FindIf((HtcsSocket sock) => sock.portName == portName && sock.type == HtcsSocketType.Port);
-    }
-
-    bool DoesPortNameExist(string portName) {
-        return hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
-    }
+    /* I should not be allowed to use one-liners */
+    public List<PortInfo> GetPortInfos(int maxCount) => targetPorts.Slice(0, Math.Min(maxCount, targetPorts.Count)).ConvertAll((t) => t.Info);
 
     public int CreateSocket()
     {
@@ -218,6 +235,17 @@ public class HtcsSocketManager : IDisposable
     {
         if (sockets[fd] == null)
             throw new HtcsException(ErrorCode.HTCS_EBADF);
+        
+        /* Remove it from the appropriate list. */
+        var s = sockets[fd];
+        if (s is TargetPort t)
+        {
+            targetPorts.Remove(t);
+        }
+        else if (s is SessionSocket ses)
+        {
+            sessions.Remove(ses);
+        }
 
         /* Free the socket. */
         sockets[fd].Dispose();
@@ -247,6 +275,9 @@ public class HtcsSocketManager : IDisposable
 
         /* Assign it to the file descriptor. */
         sockets[fd] = port;
+        
+        /* Add it to the port list. */
+        targetPorts.Add(port);
     }
 
     public void Listen(int fd, int backlogCount)
@@ -296,8 +327,10 @@ public class HtcsSocketManager : IDisposable
         int newFd = this.AllocateFileDescriptor();
 
         /* Setup a session socket. */
-        sockets[newFd] = new SessionSocket(newFd, port.GetAddress(), newHostSock);
-
+        var session = new SessionSocket(newFd, port.GetAddress(), newHostSock);
+        sockets[newFd] = session;
+        sessions.Add(session);
+        
         return new (newFd, port.GetAddress());
     }
 
@@ -316,7 +349,9 @@ public class HtcsSocketManager : IDisposable
         await this.hostPortMgr.ConnectAsync(hostSock, addr, ct);
 
         /* Create a new session socket. */
-        this.sockets[fd] = new SessionSocket(fd, addr, hostSock);
+        var session = new SessionSocket(fd, addr, hostSock);
+        this.sockets[fd] = session;
+        sessions.Add(session);
     }
 
     public async ValueTask<int> RecvPacketAsync(int fd, ArraySegment<byte> buffer, int flags, CancellationToken ct)
