@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TmDaemon\TmDaemon.csproj" />
+  <Project Path="TmGui/TmGui.csproj" />
+</Solution>

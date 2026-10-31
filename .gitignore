@@ -1,8 +1,8 @@
-Test/bin/*
-Test/obj/*
-Test/empty/*
-Test/testbin2.bin
-Test/testpart.img
+*/bin/*
+*/obj/*
+*/empty/*
+*/testbin2.bin
+*/testpart.img
 
 htc-stuff
 htc-stuff/*
@@ -11,3 +11,4 @@ send_*
 
 .vscode/*
 .idea/*
+Test.sln.DotSettings.user

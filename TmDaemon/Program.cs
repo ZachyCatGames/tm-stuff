@@ -35,7 +35,7 @@ async Task TestFunc()
 
 async Task CallerFunc()
 {
-    Console.WriteLine("Test");
+    Console.WriteLine("TmDaemon");
     await System.Threading.Tasks.Task.Delay(1000);
     Console.WriteLine("Hello");
 }
@@ -107,7 +107,7 @@ while (true)
 var hdr_b = hdr.ToBytes();
 Console.WriteLine("{0}", BitConverter.ToString(hdr_b));
 
-var hdr2 = new Test.PacketHeader(hdr_b);
+var hdr2 = new TmDaemon.PacketHeader(hdr_b);
 Console.WriteLine("{0:X}", hdr2.serviceId);
 
 Console.WriteLine("{0}", BitConverter.ToString(BitConverter.GetBytes(a)));

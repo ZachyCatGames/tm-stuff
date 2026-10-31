@@ -4,8 +4,8 @@ option csharp_namespace = "Test";
 
 package test;
 
-import "TargetTypes.proto";
-import "HtcsTypes.proto";
+import "protos/TargetTypes.proto";
+import "protos/HtcsTypes.proto";
 
 service TargetService {
   /* Connect / Disconnect. */

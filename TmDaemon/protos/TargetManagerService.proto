@@ -4,7 +4,7 @@ option csharp_namespace = "Test";
 
 package test;
 
-import "TargetTypes.proto";
+import "protos/TargetTypes.proto";
 
 service TargetManagerService {
   /* Target Info. */
