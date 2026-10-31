@@ -67,13 +67,25 @@ public partial class TargetListViewModel : ViewModelBase
         LastRefreshResult = r2;
         if (r2 == TargetResult.Success)
         {
+            /* Get the connection list. */
+            ConnectionList connList = ConnectionList.Get();
+            
             /* Clear the current target list. */
             Targets.Clear();
             
             //targs.ForEach(t => Debug.WriteLine(t.SerialNumber));
             
             /* Add the newer targets to it. */
-            targs.ForEach(t => Targets.Add(new (t)));
+            foreach (var targ in targs)
+            {
+                /* Add to the list. */
+                var targVm = new TargetInfoViewModel(targ);
+                Targets.Add(targVm);
+                
+                /* Create a connection if it's connected and we don't already have one. */
+                if (targ.Status == TargetStatus.Connected && !connList.IsConnected(targ.SerialNumber))
+                    await ConnectImpl(targVm);
+            }
         }
         
         /* Note that we're done refreshing. */

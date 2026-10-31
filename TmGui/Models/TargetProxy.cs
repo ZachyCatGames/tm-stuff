@@ -46,7 +46,13 @@ public class TargetProxy
         return reply.Result;
     }
 
-    public async Task<(TargetResult, List<htcs.PortInfo>)> GetPortInfosAsync(int maxCount)
+    public async Task<(TargetResult, int)> QueryPortCountAsync()
+    {
+        var reply = await client.QueryHtcsPortCountAsync(new QueryHtcsPortCountRequest { SerialNumber = SerialNumber });
+        return (reply.Result, reply.Count);
+    }
+
+    public async Task<(TargetResult, List<htcs.PortInfo>)> QueryHtcsPortInfosAsync(int maxCount)
     {
         var reply = await client.QueryHtcsPortInfosAsync(new QueryHtcsPortInfosRequest
         {

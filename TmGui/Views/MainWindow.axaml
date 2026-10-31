@@ -15,21 +15,17 @@
         <vm:MainViewModel />
     </Design.DataContext>
     
-    <Grid RowDefinitions="Auto,*,Auto" x:Name="Root">
-        <TextBlock Classes="h1" Text="Targets"/>
+    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" x:Name="Root">
+        <TextBlock Grid.Row="0" Grid.Column="0" Classes="h1" Text="Targets"/>
         
-        <ListBox Grid.Row="1" 
-                 ItemsSource="{Binding TargetList.Targets}"
-                 SelectedItem="{Binding TargetList.SelectedTarget}">
-            <ListBox.ItemTemplate>
-                <DataTemplate DataType="vm:TargetInfoViewModel">
-                    <Grid ColumnDefinitions="200, Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding SerialNumber}"></TextBlock>
-
-                        <TextBlock Grid.Column="1" Text="{Binding Status}"/>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
+        <TableView Grid.Row="1"
+                   Grid.Column="0"
+                   ItemsSource="{Binding TargetList.Targets}"
+                   SelectedItem="{Binding TargetList.SelectedTarget}">
+            <TableView.Columns>
+                <TableViewColumn Header="Serial Number" Binding="{Binding SerialNumber}"/>
+                <TableViewColumn Header="Status" Binding="{Binding Status}"/>
+            </TableView.Columns>
             
             <ListBox.ContextMenu>
                 <ContextMenu>
@@ -37,11 +33,26 @@
                     <MenuItem Header="{Binding TargetList.SelectedTarget.ConnOptionString}" Command="{Binding TargetList.ConnectCommand}"/>
                 </ContextMenu>
             </ListBox.ContextMenu>
-        </ListBox>
+        </TableView>
         
+        <TextBlock Grid.Row="0" Grid.Column="1" Classes="h1" Text="HTCS Entries"/>
+        
+        <TableView Grid.Row="1"
+                   Grid.Column="1"
+                   ItemsSource="{Binding TargetList.SelectedTarget.HtcsEntries}">
+            <TableView.Columns>
+                <TableViewColumn Header="Port Name" Binding="{Binding PortName}"/>
+                <TableViewColumn Header="Local Address" Binding="{Binding LocalAddress}"/>
+            </TableView.Columns>
+        </TableView>
+        
+        
+        <!--
         <TextBox Text="{Binding Greeting}"
                  HorizontalAlignment="Center"
                  VerticalAlignment="Center" />
+        -->
+        
     </Grid>
 
 

@@ -3,6 +3,7 @@ using System.Diagnostics;
 namespace TmGui.ViewModels;
 
 using System.Threading.Tasks;
+using System.Collections.ObjectModel;
 using Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,26 +18,34 @@ public partial class TargetInfoViewModel : ViewModelBase
     
     [ObservableProperty]
     public partial string ConnectionType { get; private set; }
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected))]
     [NotifyPropertyChangedFor(nameof(IsDisconnected))]
     [NotifyPropertyChangedFor(nameof(ConnOptionString))]
-    public partial TargetStatus Status { get; private set; }
+    public partial TargetStatus Status { get; private set; } = TargetStatus.Disconnected;
     
     [ObservableProperty]
-    public partial bool IsConnecting { get; private set; }
+    public partial bool IsConnecting { get; private set; } = false;
     
     [ObservableProperty]
-    public partial bool IsDisconnecting { get; private set; }
+    public partial bool IsDisconnecting { get; private set; } = false;
+
+    [ObservableProperty]
+    public partial bool IsRefreshingPortList { get; private set; } = false;
     
     [ObservableProperty]
-    public partial TargetResult ConnectResult { get; private set; }
+    public partial TargetResult ConnectResult { get; private set; } = TargetResult.Success;
+
+    [ObservableProperty]
+    public partial TargetResult PortRefreshResult { get; private set; } = TargetResult.Success;
 
     public bool IsConnected => Status == TargetStatus.Connected;
     public bool IsDisconnected => Status == TargetStatus.Disconnected;
     
     public string ConnOptionString => Status == TargetStatus.Disconnected ? "Connect" : "Disconnect";
+
+    public ObservableCollection<HtcsEntryViewModel> HtcsEntries { get; private set; } = new();
 
     public TargetInfoViewModel(TargetInfo info)
     {
@@ -79,6 +88,9 @@ public partial class TargetInfoViewModel : ViewModelBase
         {
             connList.Register(serial, targ);
             Update(info);
+
+            /* Update our htcs entries. */
+            await RefreshHtcsEntries();
         }
 
         /* We're done connecting, indicate so. */
@@ -116,5 +128,50 @@ public partial class TargetInfoViewModel : ViewModelBase
         
         /* We're done disconnecting, indicate so. */
         IsConnecting = false;
+    }
+
+    public async Task RefreshHtcsEntries()
+    {
+        string serial = SerialNumber;
+        ConnectionList connList = ConnectionList.Get();
+        
+        /* Indicate we're refreshing the port list. */
+        IsRefreshingPortList = true;
+        
+        /* Get the proxy object. */
+        TargetProxy? targ = connList.GetTarget(serial);
+        if (targ == null)
+        {
+            PortRefreshResult = TargetResult.NotConnected;
+            IsRefreshingPortList = false;
+            return;
+        }
+        
+        /* Get the number of ports. */
+        var (r1, count) = await targ.QueryPortCountAsync();
+        if (r1 != TargetResult.Success)
+        {
+            PortRefreshResult = r1;
+            IsRefreshingPortList = false;
+            return;
+        }
+        
+        Debug.WriteLine("htcs count = " + count);
+        
+        /* Get info on all current ports. */
+        var (r2, infos) = await targ.QueryHtcsPortInfosAsync(count);
+        PortRefreshResult = r2;
+        
+        /* Update our list of ports. */
+        HtcsEntries.Clear();
+        infos.ForEach(t => HtcsEntries.Add(new HtcsEntryViewModel(t)));
+
+        foreach (var h in HtcsEntries)
+        {
+            Debug.WriteLine("port " + h.PortName);
+        }
+
+        /* Indicate we're done. */
+        IsRefreshingPortList = false;
     }
 }
