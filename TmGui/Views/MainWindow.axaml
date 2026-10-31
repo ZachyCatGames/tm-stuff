@@ -14,9 +14,27 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainViewModel />
     </Design.DataContext>
+    
+    <Grid RowDefinitions="Auto,*,Auto" x:Name="Root">
+        <TextBlock Classes="h1" Text="Targets"/>
+        
+        <ListBox Grid.Row="1" ItemsSource="{Binding TargetList.Targets}">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:TargetInfoViewModel">
+                    <Grid ColumnDefinitions="200, Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding SerialNumber}"></TextBlock>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Hello Cringe"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        
+        <TextBox Text="{Binding Greeting}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center" />
+    </Grid>
+
+
 
 </Window>

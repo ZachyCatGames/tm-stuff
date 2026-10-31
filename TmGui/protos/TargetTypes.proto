@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option csharp_namespace = "TmGui";
+
+package test;
+
+enum TargetResult {
+  TargetResult_Success = 0;
+  TargetResult_TargetNotFound = 1;
+  TargetResult_NotConnected = 2;
+  TargetResult_InvalidSize = 3;
+  TargetResult_InvalidIndex = 4;
+  
+  /* HTCS results. */
+  TargetResult_PortNotFound = 1000;
+}
+
+enum TargetStatus {
+  TargetStatus_Disconnected = 0;
+  TargetStatus_Connected = 1;
+}
+
+enum QueryType {
+  QueryType_Disconnected = 0;
+  QueryType_Connected = 1;
+  QueryType_All = 2;
+}
+
+message TargetInfo {
+  string serialNumber = 1;
+  string address = 2;
+  string connectionType = 3;
+  TargetStatus status = 4;
+}

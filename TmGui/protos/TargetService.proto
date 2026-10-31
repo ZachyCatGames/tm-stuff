@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+option csharp_namespace = "TmGui";
+
+package test;
+
+import "protos/TargetTypes.proto";
+import "protos/HtcsTypes.proto";
+
+service TargetService {
+  /* Connect / Disconnect. */
+  rpc Connect (ConnectTargetRequest) returns (ConnectTargetReply);
+  rpc Disconnect (DisconnectTargetRequest) returns (DisconnectTargetReply);
+
+  /* HTCS Port Management. */
+  rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
+  rpc QueryHtcsPortCount(QueryHtcsPortCountRequest) returns (QueryHtcsPortCountReply);
+  rpc QueryHtcsPortInfos(QueryHtcsPortInfosRequest) returns (QueryHtcsPortInfosReply);
+}
+
+message ConnectTargetRequest {
+  string serialNumber = 1;
+}
+
+message ConnectTargetReply {
+  TargetResult result = 1;
+  TargetInfo info = 2;
+}
+
+message DisconnectTargetRequest {
+  string serialNumber = 1;
+}
+
+message DisconnectTargetReply {
+  TargetResult result = 1;
+}
+
+message QueryHtcsPortByNameRequest {
+  string serialNumber = 1;
+  string portName = 2;
+}
+
+message QueryHtcsPortByNameReply {
+  TargetResult result = 1;
+  htcs.PortInfo info  = 2;
+}
+
+message CloseTargetRequest {
+  string serialNumber = 1;
+}
+
+message CloseTargetReply {
+  TargetResult result = 1;
+}
+
+message QueryHtcsPortCountRequest {
+  string serialNumber = 1;
+}
+
+message QueryHtcsPortCountReply {
+  TargetResult result = 1;
+  int32 count = 2;
+}
+
+message QueryHtcsPortInfosRequest {
+  string serialNumber = 1;
+  int32 maxCount = 2;
+}
+
+message QueryHtcsPortInfosReply {
+  TargetResult result = 1;
+  repeated htcs.PortInfo infos = 2;
+}

@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Folder Include="Models\"/>
         <AvaloniaResource Include="Assets\**"/>
     </ItemGroup>
 
@@ -21,5 +20,20 @@
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
         </PackageReference>
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2"/>
+
+        <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+        <PackageReference Include="Grpc.Net.Client" Version="2.84.0" />
+        <PackageReference Include="Grpc.Tools" Version="2.84.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+
+        <Protobuf Include="protos\TargetService.proto" GrpcServices="Client" />
+        <Protobuf Include="protos\TargetManagerService.proto" GrpcServices="Client" />
+        <Protobuf Include="protos\TargetTypes.proto" GrpcServices="None" />
+        <Protobuf Include="protos\HtcsTypes.proto" GrpcServices="None" />
     </ItemGroup>
 </Project>
