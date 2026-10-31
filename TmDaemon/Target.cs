@@ -23,8 +23,6 @@ public class Target : IDisposable
     
     private SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 
-    private TargetInfo? cachedInfo;
-
     public TargetInfo Info { get; private set; }
 
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
@@ -69,7 +67,7 @@ public class Target : IDisposable
         packetManager.Connect();
         
         /* Update our status to connected. */
-        cachedInfo.Status = TargetStatus.Connected;
+        Info.Status = TargetStatus.Connected;
     }
 
     private void DisconnectImpl()
@@ -90,7 +88,7 @@ public class Target : IDisposable
         parent.NotifyOnDisconnect(this);
         
         /* Update our status to disconnected. */
-        cachedInfo.Status = TargetStatus.Disconnected;
+        Info.Status = TargetStatus.Disconnected;
 
         //Console.WriteLine("{0} disconnected", Info.serialNumber);
     }
