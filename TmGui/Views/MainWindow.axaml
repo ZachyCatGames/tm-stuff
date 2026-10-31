@@ -18,16 +18,25 @@
     <Grid RowDefinitions="Auto,*,Auto" x:Name="Root">
         <TextBlock Classes="h1" Text="Targets"/>
         
-        <ListBox Grid.Row="1" ItemsSource="{Binding TargetList.Targets}">
+        <ListBox Grid.Row="1" 
+                 ItemsSource="{Binding TargetList.Targets}"
+                 SelectedItem="{Binding TargetList.SelectedTarget}">
             <ListBox.ItemTemplate>
                 <DataTemplate DataType="vm:TargetInfoViewModel">
                     <Grid ColumnDefinitions="200, Auto">
                         <TextBlock Grid.Column="0" Text="{Binding SerialNumber}"></TextBlock>
 
-                        <TextBlock Grid.Column="1" Text="Hello Cringe"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Status}"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
+            
+            <ListBox.ContextMenu>
+                <ContextMenu>
+                    <!-- Is this overcomplicated? maybe -->
+                    <MenuItem Header="{Binding TargetList.SelectedTarget.ConnOptionString}" Command="{Binding TargetList.ConnectCommand}"/>
+                </ContextMenu>
+            </ListBox.ContextMenu>
         </ListBox>
         
         <TextBox Text="{Binding Greeting}"

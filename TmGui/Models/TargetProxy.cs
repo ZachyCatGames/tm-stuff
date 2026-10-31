@@ -28,7 +28,7 @@ public class TargetProxy
         return TargetStatus.Connected;
     }
 
-    public async Task<(TargetResult, TargetInfo)> Connect()
+    public async Task<(TargetResult, TargetInfo)> ConnectAsync()
     {
         var reply = await client.ConnectAsync(
             new ConnectTargetRequest
@@ -40,13 +40,13 @@ public class TargetProxy
         return (reply.Result, reply.Info);
     }
 
-    public async Task<TargetResult> Disconnect()
+    public async Task<TargetResult> DisconnectAsync()
     {
         var reply = await client.DisconnectAsync(new DisconnectTargetRequest { SerialNumber = SerialNumber });
         return reply.Result;
     }
 
-    public async Task<(TargetResult, List<htcs.PortInfo>)> GetPortInfos(int maxCount)
+    public async Task<(TargetResult, List<htcs.PortInfo>)> GetPortInfosAsync(int maxCount)
     {
         var reply = await client.QueryHtcsPortInfosAsync(new QueryHtcsPortInfosRequest
         {
