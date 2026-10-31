@@ -33,4 +33,23 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
 
         return t;
     }
+
+    public override async Task<QueryTargetInfoBySerialReply> QueryTargetInfoBySerial(QueryTargetInfoBySerialRequest request, ServerCallContext context)
+    {
+        var info = await manager.QueryTargetInfoBySerialAsync(request.SerialNumber);
+
+        if (info == null)
+        {
+            return new QueryTargetInfoBySerialReply()
+            {
+                Result = TargetResult.TargetNotFound
+            };
+        }
+
+        return new QueryTargetInfoBySerialReply()
+        {
+            Result = TargetResult.Success,
+            Info = info
+        };
+    }
 }

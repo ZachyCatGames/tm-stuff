@@ -29,18 +29,23 @@ public class TargetManagerImpl : ITargetManager
 
     public async Task<List<TargetInfo>> QueryTargetInfosAsync(QueryType type, int maxCount)
     {
-        List<TargetInfo> infos = new List<TargetInfo>();
+        var infos =  await QueryTargetInfosImpl(type);
+        return infos.Slice(0, Math.Min(maxCount, infos.Count));
+    }
+
+    public async Task<TargetInfo?> QueryTargetInfoBySerialAsync(string serial)
+    {
+        /* Query all targets. */
+        var infos = await QueryTargetInfosImpl(QueryType.All);
         
-        if (type == QueryType.All || type == QueryType.Connected)
+        /* See if one with <serial> exists. */
+        foreach (var info in infos)
         {
-            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryConnectedInfosAsync()));
-        }
-        if (type == QueryType.All || type == QueryType.Disconnected)
-        {
-            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryDisconnectedInfosAsync()));
+            if (info.SerialNumber == serial)
+                return info;
         }
 
-        return infos.Slice(0, Math.Min(maxCount, infos.Count));
+        return null;
     }
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)
@@ -81,5 +86,21 @@ public class TargetManagerImpl : ITargetManager
         
         /* Remove the target from our dict. */
         targets.Remove(sn);
+    }
+
+    private async Task<List<TargetInfo>> QueryTargetInfosImpl(QueryType type)
+    {
+        List<TargetInfo> infos = new List<TargetInfo>();
+        
+        if (type == QueryType.All || type == QueryType.Connected)
+        {
+            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryConnectedInfosAsync()));
+        }
+        if (type == QueryType.All || type == QueryType.Disconnected)
+        {
+            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryDisconnectedInfosAsync()));
+        }
+
+        return infos;
     }
 }
