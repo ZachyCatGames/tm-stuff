@@ -77,7 +77,8 @@ public class UsbPacketManager : IPacketManager
         {
             SerialNumber   = sn,
             Address        = GetUsbDeviceNumber().ToString(),
-            ConnectionType = "USB"
+            ConnectionType = "USB",
+            Status         = isConnected ? TargetStatus.Connected : TargetStatus.Disconnected,
         };
     }
 
@@ -124,7 +125,8 @@ public class UsbPacketManager : IPacketManager
         /* Use cached packet if already cached. */
         if (beaconPacket != null)
         {
-            beacon = beaconPacket;
+            beacon =  beaconPacket;
+            return;
         }
 
         /* Send a query packet. */

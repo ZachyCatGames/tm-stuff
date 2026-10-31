@@ -23,11 +23,9 @@ public class Target : IDisposable
     
     private SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 
-    public TargetInfo Info { get; }
+    private TargetInfo? cachedInfo;
 
-    public string SerialNumber { get; }
-    public string Address { get; }
-    public string ConnectionType { get; }
+    public TargetInfo Info { get; private set; }
 
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
     {
@@ -53,10 +51,8 @@ public class Target : IDisposable
         serviceManager.RegisterService(hioDirService);
         serviceManager.RegisterService(envService);
         
-        Info            = packetManager.GetTargetInfo();
-        SerialNumber    = Info.SerialNumber;
-        Address         = Info.Address;
-        ConnectionType  = Info.ConnectionType;
+        /* Get initial info. */
+        Info = packetManager.GetTargetInfo();
     }
 
     public void Dispose()
@@ -71,6 +67,9 @@ public class Target : IDisposable
         
         /* Start the packet manager properly. */
         packetManager.Connect();
+        
+        /* Update our status to connected. */
+        cachedInfo.Status = TargetStatus.Connected;
     }
 
     private void DisconnectImpl()
@@ -89,6 +88,9 @@ public class Target : IDisposable
         
         /* Notify manager. */
         parent.NotifyOnDisconnect(this);
+        
+        /* Update our status to disconnected. */
+        cachedInfo.Status = TargetStatus.Disconnected;
 
         //Console.WriteLine("{0} disconnected", Info.serialNumber);
     }
