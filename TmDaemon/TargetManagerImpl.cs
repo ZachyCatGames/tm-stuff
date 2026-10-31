@@ -12,6 +12,21 @@ public class TargetManagerImpl : ITargetManager
         /* Create providers for USB and TICS (TODO). */
         providers.Add(new UsbTargetProvider(this));
     }
+
+    public async Task<int> InitializeClientContext()
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<bool> FinalizeClientContext(int contextId)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<bool> IsValidContextId(int contextId)
+    {
+        throw new NotImplementedException();
+    }
     
     public async Task<int> QueryTargetCountAsync(QueryType type)
     {
@@ -46,6 +61,11 @@ public class TargetManagerImpl : ITargetManager
         }
 
         return null;
+    }
+
+    public Task<(TargetResult, TargetInfo?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken)
+    {
+        throw new NotImplementedException();
     }
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)

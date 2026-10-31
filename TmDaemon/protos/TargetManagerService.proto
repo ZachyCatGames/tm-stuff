@@ -7,10 +7,33 @@ package test;
 import "protos/TargetTypes.proto";
 
 service TargetManagerService {
+  /* Client Context. */
+  rpc InitializeUserContext (InitManagerClientContextRequest) returns (InitManagerClientContextReply);
+  rpc FinalizeUserContext (FiniManagerClientContextRequest) returns (FiniManagerClientContextReply);
+  
   /* Target Info. */
   rpc QueryTargetCount (QueryTargetCountRequest) returns (QueryTargetCountReply);
   rpc QueryTargetInfo (QueryTargetInfoRequest) returns (QueryTargetInfoReply);
   rpc QueryTargetInfoBySerial (QueryTargetInfoBySerialRequest) returns (QueryTargetInfoBySerialReply);
+  rpc GetTargetUpdate (GetTargetUpdateRequest) returns (GetTargetUpdateReply);
+}
+
+message InitManagerClientContextRequest {
+  /* ... */
+}
+
+message InitManagerClientContextReply {
+  TargetResult result = 1;
+  int32 contextId = 2;
+}
+
+message FiniManagerClientContextRequest {
+  int32 contextId = 1;
+}
+
+message FiniManagerClientContextReply {
+  TargetResult result = 1;
+  int32 contextId = 2;
 }
 
 message QueryTargetCountRequest {
@@ -38,6 +61,15 @@ message QueryTargetInfoBySerialRequest {
 }
 
 message QueryTargetInfoBySerialReply {
+  TargetResult result = 1;
+  TargetInfo info = 2;
+}
+
+message GetTargetUpdateRequest {
+  int32 contextId = 1;
+}
+
+message GetTargetUpdateReply {
   TargetResult result = 1;
   TargetInfo info = 2;
 }

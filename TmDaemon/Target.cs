@@ -118,11 +118,26 @@ public class Target : IDisposable
         thread.Join();
     }
 
+    public async Task<int> InitializeClientContext()
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<bool> FinalizeClientContext(int contextId)
+    {
+        throw new NotImplementedException();
+    }
+
     public PortInfo? QueryHtcsPortByName(string portName) => htcsManager.GetPortInfoByName(portName);
 
     public int QueryHtcsPortCount() => htcsManager.PortCount;
 
     public List<PortInfo> QueryHtcsPortInfos(int maxCount) => htcsManager.GetPortInfos(maxCount);
+
+    public async Task<(TargetResult, htcs.PortInfo?)> GetNewHtcsPortInfoAsync(int contextId, CancellationToken cancelToken)
+    {
+        return (TargetResult.NotImplemented, null);
+    }
     
     public IPacketManager GetPacketManager()
     {

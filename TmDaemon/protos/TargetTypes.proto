@@ -10,6 +10,10 @@ enum TargetResult {
   TargetResult_NotConnected = 2;
   TargetResult_InvalidSize = 3;
   TargetResult_InvalidIndex = 4;
+  TargetResult_OperationCanceled = 5;
+  TargetResult_InProgress = 6;
+  TargetResult_InvalidContextId = 7;
+  TargetResult_NotImplemented = 8;
   
   /* HTCS results. */
   TargetResult_PortNotFound = 1000;

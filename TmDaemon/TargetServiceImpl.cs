@@ -40,6 +40,49 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
             Result = TargetResult.Success
         };
     }
+    
+    public override async Task<InitTargetClientContextReply> InitializeUserContext(InitTargetClientContextRequest request, ServerCallContext context)
+    {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
+        if (target == null)
+            return new InitTargetClientContextReply { Result = TargetResult.NotConnected };
+        
+        int contextId = await target.InitializeClientContext();
+        if (contextId < 0)
+        {
+            /* TODO: What result should this be? */
+            return new InitTargetClientContextReply()
+            {
+                Result = TargetResult.Success,
+                ContextId = -1,
+            };
+        }
+
+        return new InitTargetClientContextReply()
+        {
+            Result = TargetResult.Success,
+            ContextId = contextId
+        };
+    }
+    
+    public override async Task<FiniTargetClientContextReply> FinalizeUserContext(FiniTargetClientContextRequest request, ServerCallContext context)
+    {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
+        if (target == null)
+            return new FiniTargetClientContextReply { Result = TargetResult.NotConnected };
+        
+        bool success = await target.FinalizeClientContext(request.ContextId);
+        if (!success)
+            return new FiniTargetClientContextReply() { Result = TargetResult.InvalidContextId };
+        
+        return new FiniTargetClientContextReply()
+        {
+            Result = TargetResult.Success,
+            ContextId = request.ContextId
+        };
+    }
 
     public override async Task<QueryHtcsPortByNameReply> QueryHtcsPortByName(QueryHtcsPortByNameRequest request, ServerCallContext context)
     {
@@ -89,5 +132,27 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
         var reply = new QueryHtcsPortInfosReply { Result = TargetResult.Success };
         reply.Infos.AddRange(infos);
         return reply;
+    }
+    
+    public override async Task<GetNewHtcsPortInfoReply> GetNewHtcsPortInfo(GetNewHtcsPortInfoRequest request, ServerCallContext context)
+    {
+        /* Get the target. */
+        var target = await manager.GetTargetAsync(request.SerialNumber);
+        if (target == null)
+            return new GetNewHtcsPortInfoReply { Result = TargetResult.NotConnected };
+        
+        /* Call on target. */
+        var (result, info) = await target.GetNewHtcsPortInfoAsync(request.ContextId, context.CancellationToken);
+
+        /* Return error reply on error. */
+        if (result != TargetResult.Success)
+            return new GetNewHtcsPortInfoReply() { Result = result };
+        
+        /* Setup our reply. */
+        return new GetNewHtcsPortInfoReply
+        {
+            Result = result,
+            Info   = info
+        };
     }
 }

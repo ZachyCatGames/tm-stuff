@@ -9,7 +9,39 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
     {
         this.manager = manager;
     }
+
+    public override async Task<InitManagerClientContextReply> InitializeUserContext(InitManagerClientContextRequest request, ServerCallContext context)
+    {
+        int contextId = await manager.InitializeClientContext();
+        if (contextId < 0)
+        {
+            /* TODO: What result should this be? */
+            return new InitManagerClientContextReply()
+            {
+                Result = TargetResult.Success,
+                ContextId = -1,
+            };
+        }
+
+        return new InitManagerClientContextReply()
+        {
+            Result = TargetResult.Success,
+            ContextId = contextId
+        };
+    }
     
+    public override async Task<FiniManagerClientContextReply> FinalizeUserContext(FiniManagerClientContextRequest request, ServerCallContext context)
+    {
+        bool success = await manager.FinalizeClientContext(request.ContextId);
+        if (!success)
+            return new FiniManagerClientContextReply() { Result = TargetResult.InvalidContextId };
+        
+        return new FiniManagerClientContextReply()
+        {
+            Result = TargetResult.Success,
+            ContextId = request.ContextId
+        };
+    }
 
     public override async Task<QueryTargetCountReply> QueryTargetCount(QueryTargetCountRequest request, ServerCallContext context)
     {
@@ -50,6 +82,37 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
         {
             Result = TargetResult.Success,
             Info = info
+        };
+    }
+
+    public override async Task<GetTargetUpdateReply> GetTargetUpdate(GetTargetUpdateRequest request, ServerCallContext context)
+    {
+        TargetInfo? info = null;
+        TargetResult result;
+        try
+        {
+            (result, info) = await manager.GetTargetUpdateAsync(request.ContextId, context.CancellationToken);
+        }
+        catch (OperationCanceledException e)
+        {
+            return new GetTargetUpdateReply()
+            {
+                Result = TargetResult.OperationCanceled
+            };
+        }
+
+        if (result != TargetResult.Success)
+        {
+            return new GetTargetUpdateReply()
+            {
+                Result = result,
+            };
+        }
+
+        return new GetTargetUpdateReply()
+        {
+            Result = TargetResult.Success,
+            Info   = info
         };
     }
 }
