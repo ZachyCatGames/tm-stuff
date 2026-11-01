@@ -105,7 +105,7 @@ public class TargetManagerImpl : ITargetManager
         if (!clientContexts.TryGetValue(contextId, out var ctx))
             return (TargetResult.InvalidContextId, null);
         
-        /* Wait for a port update. */
+        /* Wait for a target update. */
         TargetEvent ev;
         try
         {
