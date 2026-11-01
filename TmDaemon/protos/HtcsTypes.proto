@@ -10,3 +10,8 @@ message PortInfo {
   uint32 ip = 3;
   uint32 port = 4;
 }
+
+enum PortEventType {
+  PortEventType_Added = 0;
+  PortEventType_Removed = 1;
+}

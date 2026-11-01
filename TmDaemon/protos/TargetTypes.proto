@@ -22,12 +22,14 @@ enum TargetResult {
 enum TargetStatus {
   TargetStatus_Disconnected = 0;
   TargetStatus_Connected = 1;
+  TargetStatus_Unplugged = 2;
 }
 
 enum QueryType {
   QueryType_Disconnected = 0;
   QueryType_Connected = 1;
   QueryType_All = 2;
+  QueryType_Registered = 3;
 }
 
 message TargetInfo {
@@ -35,4 +37,9 @@ message TargetInfo {
   string address = 2;
   string connectionType = 3;
   TargetStatus status = 4;
+}
+
+enum TargetEventType {
+  TargetEventType_Connected = 0;
+  TargetEventType_Disconnected = 1;
 }

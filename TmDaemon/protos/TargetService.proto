@@ -20,7 +20,7 @@ service TargetService {
   rpc QueryHtcsPortByName(QueryHtcsPortByNameRequest) returns (QueryHtcsPortByNameReply);
   rpc QueryHtcsPortCount(QueryHtcsPortCountRequest) returns (QueryHtcsPortCountReply);
   rpc QueryHtcsPortInfos(QueryHtcsPortInfosRequest) returns (QueryHtcsPortInfosReply);
-  rpc GetNewHtcsPortInfo(GetNewHtcsPortInfoRequest) returns (GetNewHtcsPortInfoReply);
+  rpc GetHtcsPortUpdate(GetHtcsPortUpdateRequest) returns (GetHtcsPortUpdateReply);
 }
 
 message InitTargetClientContextRequest {
@@ -96,13 +96,14 @@ message QueryHtcsPortInfosReply {
   repeated htcs.PortInfo infos = 2;
 }
 
-message GetNewHtcsPortInfoRequest {
+message GetHtcsPortUpdateRequest {
   string serialNumber = 1;
   int32 contextId = 2;
 }
 
-message GetNewHtcsPortInfoReply {
+message GetHtcsPortUpdateReply {
   TargetResult result = 1;
-  htcs.PortInfo info = 2;
+  htcs.PortEventType eventType = 2;
+  htcs.PortInfo info = 3;
 }
 

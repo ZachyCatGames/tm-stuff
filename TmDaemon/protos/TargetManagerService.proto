@@ -71,5 +71,6 @@ message GetTargetUpdateRequest {
 
 message GetTargetUpdateReply {
   TargetResult result = 1;
-  TargetInfo info = 2;
+  TargetEventType eventType = 2;
+  TargetInfo info = 3;
 }
