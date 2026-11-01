@@ -9,6 +9,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private ITargetManager parent;
 
+    private SemaphoreSlim asyncLock = new(1);
+
     private Dictionary<int, Target> connectedTargets = new();
 
     private UsbContext context;
@@ -27,7 +29,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         context.Dispose();
     }
     
-    Target? CreateTarget(UsbDevice device, out bool isNew)
+    Target? CreateTargetUnsafe(UsbDevice device, out bool isNew)
     {
         int id = device.Address | (device.BusNumber << 8);
         
@@ -61,7 +63,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         return targ;
     }
     
-    public async Task<TargetList> QueryTargetsImplAsync(Func<Target, bool> pred)
+    public async Task<TargetList> QueryTargetsImplUnsafeAsync(Func<Target, bool> pred)
     {
         var list = new TargetList();
         
@@ -69,7 +71,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             foreach (var dev in sdkDevices)
             {
-                var targ = CreateTarget((UsbDevice)(dev.Clone()), out bool isNew);
+                var targ = CreateTargetUnsafe((UsbDevice)(dev.Clone()), out bool isNew);
                 if (isNew)
                 {
                     if (pred(targ))
@@ -77,21 +79,22 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                     else
                         targ.Dispose();
                 } 
-
             }
         }
 
         return list;
     }
 
-    public Task<TargetList> QueryTargetsImplAsync()
+    public Task<TargetList> QueryTargetsImplUnsafeAsync()
     {
-        return QueryTargetsImplAsync((_) => true);
+        return QueryTargetsImplUnsafeAsync((_) => true);
     } 
     
     public async Task<int> QueryDisconnectedCountAsync()
     {
-        using (var targets = await QueryTargetsImplAsync())
+        using var l = await AsyncLockHolder.EnterAsync(asyncLock);
+        
+        using (var targets = await QueryTargetsImplUnsafeAsync())
         {
             return targets.Count;
         }
@@ -99,8 +102,10 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     public async Task<List<TargetInfo>> QueryDisconnectedInfosAsync()
     {
+        using var l = await AsyncLockHolder.EnterAsync(asyncLock);
+        
         var list = new List<TargetInfo>();
-        using (var targets = await QueryTargetsImplAsync())
+        using (var targets = await QueryTargetsImplUnsafeAsync())
         {
             targets.ForEach(targ => list.Add(targ.Info));
         }
@@ -110,12 +115,15 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     public async Task<int> QueryConnectedCountAsync()
     {
-
+        using var l = await AsyncLockHolder.EnterAsync(asyncLock);
+        
         return connectedTargets.Count;
     }
 
     public async Task<List<TargetInfo>> QueryConnectedInfosAsync()
     {
+        using var l = await AsyncLockHolder.EnterAsync(asyncLock);
+        
         var list = new List<TargetInfo>();
         foreach (var target in connectedTargets.Values)
         {
@@ -127,7 +135,9 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     
     public async Task<Target?> ConnectAsync(string serialNumber)
     {
-        var list = await QueryTargetsImplAsync();
+        using var l = await AsyncLockHolder.EnterAsync(asyncLock);
+        
+        var list = await QueryTargetsImplUnsafeAsync();
         Target? selected = null;
         foreach (var targ in list)
         {
@@ -156,11 +166,10 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     public void NotifyDisconnect(UsbPacketManager child)
     {
+        using var l = AsyncLockHolder.Enter(asyncLock);
+        
         /* Assert this? */
         int id = child.GetUsbDeviceNumber();
-        if (connectedTargets.ContainsKey(id))
-        {
-            connectedTargets.Remove(id);
-        }
+        connectedTargets.Remove(id);
     }
 }
