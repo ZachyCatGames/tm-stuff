@@ -5,7 +5,6 @@ namespace Test;
 public class TargetServiceImpl : Test.TargetService.TargetServiceBase
 {
     private ITargetManager manager;
-    private Target? target;
 
     public TargetServiceImpl(ITargetManager manager)
     {
