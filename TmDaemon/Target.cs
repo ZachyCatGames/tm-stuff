@@ -24,8 +24,6 @@ public class Target : IDisposable
     private readonly HostDirectoryIOService hioDirService;
     private readonly HostEnvService         envService;
     
-    private readonly SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
-
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
 
@@ -152,6 +150,7 @@ public class Target : IDisposable
     public async Task DisconnectUnsafeAsync()
     {
         /* Run the disconnect routine in a thread. */
+        var doneSignal =  new SemaphoreSlim(0);
         var thread = new Thread(async () =>
         {
             /* Disconnect from the target. */
