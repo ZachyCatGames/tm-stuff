@@ -192,7 +192,7 @@ public class HtcsSocketManager : IDisposable
             targetPorts.Add(port);
             
             /* Send an added event to each port event observer. */
-            portEvObservers.ForEach(c => c.Callback(new PortEvent(port.Info, PortEventType.Added)));
+            portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Added)));
         }
     }
 
@@ -204,7 +204,7 @@ public class HtcsSocketManager : IDisposable
             targetPorts.Remove(port);
             
             /* Send an event to each port even observer. */
-            portEvObservers.ForEach(c => c.Callback(new PortEvent(port.Info, PortEventType.Removed)));
+            portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Removed)));
         }
     }
 
@@ -255,7 +255,7 @@ public class HtcsSocketManager : IDisposable
         using (var s = socketsLock.EnterScope())
         {
             /* Push creation events for all current target ports. */
-            targetPorts.ForEach(port => callback.Callback(new PortEvent(port.Info, PortEventType.Added)));
+            targetPorts.ForEach(port => callback.Notify(new PortEvent(port.Info, PortEventType.Added)));
 
             /* Register the callback. */
             portEvObservers.Add(callback);

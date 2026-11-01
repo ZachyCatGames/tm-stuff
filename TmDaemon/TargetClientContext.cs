@@ -7,21 +7,20 @@ public class TargetClientContext
 {
     private class PortCallbackImpl : htcs.IPortEventCallback
     {
-        private TargetClientContext parent;
+        private readonly TargetClientContext parent;
         
         public PortCallbackImpl(TargetClientContext ctx)
         {
             parent = ctx;
         }
 
-        public void Callback(PortEvent ev) => parent.PushPortEvent(ev);
+        public void Notify(PortEvent ev) => parent.PushPortEvent(ev);
     }
 
-    private PortCallbackImpl portCallback;
+    private readonly PortCallbackImpl portCallback;
+    private readonly CancellationTokenSource cancelPop = new();
     
-    private Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();
-
-    private CancellationTokenSource cancelPop = new();
+    private readonly Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();
     
     public TargetClientContext()
     {
@@ -31,7 +30,6 @@ public class TargetClientContext
     public IPortEventCallback PortEventCallback { get => portCallback; }
     
     public void PushPortEvent(PortEvent ev) => portEventQueue.Writer.TryWrite(ev);
-
     public async Task<PortEvent> PopPortEventAsync(CancellationToken cancelToken)
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken, cancelPop.Token);

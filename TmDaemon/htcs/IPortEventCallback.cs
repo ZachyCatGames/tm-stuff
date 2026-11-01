@@ -2,5 +2,5 @@ namespace Test.htcs;
 
 public interface IPortEventCallback
 {
-    public void Callback(PortEvent ev);
+    public void Notify(PortEvent ev);
 }
