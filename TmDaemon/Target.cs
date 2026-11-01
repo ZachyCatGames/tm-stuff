@@ -82,6 +82,12 @@ public class Target : IDisposable
         /* Finalize service manager. */
         serviceManager.Finalize();
         
+        /* Cancel any port event observers. */
+        foreach (var ctx in clientContexts.Values)
+        {
+            ctx.CancelPop();
+        }
+        
         /* Finalize the file manager. */
         hostfsManager.Dispose();
         

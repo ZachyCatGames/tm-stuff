@@ -218,7 +218,7 @@ public class UsbPacketManager : IPacketManager
                 Interlocked.Exchange(ref sendDone, 1);
                 return;
             }
-            
+
             //File.Open(String.Format("send_{0}", j), FileMode.Create).Write(pkt.GetBuffer());
             //pkt.Print();
 
