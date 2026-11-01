@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Test.hio;
 using Test.htcs;
 using Test.env;
@@ -139,7 +140,7 @@ public class Target : IDisposable
         /* Update our status to disconnected. */
         Info.Status = TargetStatus.Disconnected;
 
-        //Console.WriteLine("{0} disconnected", Info.serialNumber);
+        //Console.WriteLine("{0} disconnected", Info.SerialNumber);
     }
     
     public void Disconnect()
@@ -246,8 +247,5 @@ public class Target : IDisposable
         return packetManager;
     }
     
-    public void NotifyAbruptDisconnect()
-    {
-        disconnectSignal.Release();
-    }
+    public void NotifyAbruptDisconnect() => disconnectSignal.Release();
 }

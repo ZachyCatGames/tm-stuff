@@ -172,4 +172,13 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         int id = child.GetUsbDeviceNumber();
         connectedTargets.Remove(id);
     }
+
+    public void NotifyAbruptDisconnect(UsbPacketManager child)
+    {
+        using var l = AsyncLockHolder.Enter(asyncLock);
+
+        /* Notify the parent target. */
+        int id = child.GetUsbDeviceNumber();
+        connectedTargets[id].NotifyAbruptDisconnect();
+    }
 }

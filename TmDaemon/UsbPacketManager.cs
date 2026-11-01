@@ -12,28 +12,33 @@ public class UsbPacketManager : IPacketManager
     private const UInt32 QueryBeaconPacketServiceId = 0x3a8ddd94;
     private const UInt32 SendHostInfoServiceId      = 0x4d4a6c24;
     
-    readonly Thread sendThread;
-    readonly Thread recvThread;
+    private readonly Thread sendThread;
+    private readonly Thread recvThread;
 
     private readonly UsbTargetProvider parent;
 
-    readonly PacketQueue packetQueue = new(20);
+    private readonly PacketQueue packetQueue = new(20);
 
-    readonly ServiceManager serviceManager;
+    private readonly ServiceManager serviceManager;
 
-    readonly UsbInterface usbIf;
+    private readonly UsbInterface usbIf;
 
     private BeaconPacket? beaconPacket;
     
     private bool isConnected;
     private bool isCommsDisabled;
     private long recvDone, sendDone;
-    private CancellationTokenSource cancelSrc = new();
+    private readonly CancellationTokenSource cancelSrc = new();
+
+    private bool abruptDisconnectHandled = false;
+    private readonly Lock abruptDisconnectLock = new();
 
     public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
-        usbIf = usb;
+        usbIf          = usb;
+        this.parent    = parent;
+        
         sendThread = new Thread(SendThread);
         recvThread = new Thread(RecvThread);
 
@@ -42,8 +47,6 @@ public class UsbPacketManager : IPacketManager
         isCommsDisabled = false;
         recvDone = 0;
         sendDone = 0;
-
-        this.parent = parent;
     }
 
     public void Dispose()
@@ -107,14 +110,8 @@ public class UsbPacketManager : IPacketManager
     {
         Debug.Assert(isConnected);
         
-        /* Cancel current transfers. */
-        cancelSrc.Cancel();
-        usbIf.Cancel();
-        
-        /* Wait for both threads to exit. */
-        /* TODO: This "should" probably use async semaphores or similar. */
-        while (Interlocked.Read(ref recvDone) == 0) { }
-        while (Interlocked.Read(ref sendDone) == 0) { }
+        /* Stop send and recv threads. */
+        StopThreads();
         
         /* Tell our parent that we're done. */
         parent.NotifyDisconnect(this);
@@ -164,44 +161,58 @@ public class UsbPacketManager : IPacketManager
         /* Release the packet. */
         pkt.Release();
     }
-    
-    private void RecvPacketImpl(ref Packet pkt)
+
+    private void NotifyAbruptDisconnect()
     {
-        /* Receive the packet header. */
-        Error err = usbIf.Read(pkt.GetBuffer(), 0, Packet.PacketMaxSize, out int sizeRead);
-        if (err != Error.Success)
-        {
-            Console.WriteLine("USB Write Error: {0}", err);
+        using var l = abruptDisconnectLock.EnterScope();
+
+        /* If the other thread already took care of things, do nothing. */
+        if (abruptDisconnectHandled)
             return;
-        }
+        
+        /* Indicate that handling has finished. */
+        abruptDisconnectHandled = true;
+        
+        /* Notify parent so it can do cleanup. */
+        parent.NotifyAbruptDisconnect(this);
+    }
+    
+    private Error RecvPacketImpl(ref Packet pkt)
+    {
+        /* Receive the packet. */
+        return usbIf.Read(pkt.GetBuffer(), 0, Packet.PacketMaxSize, out int sizeRead);
     }
 
-    private void SendPacketImpl(Packet pkt)
+    private Error SendPacketImpl(Packet pkt)
     {
         /* First, send the header. */
         byte[] buf = pkt.GetBuffer();
         Error err = usbIf.Write(buf, 0, Packet.HeaderSize, out int hdrSize);
-        if (err == Error.Timeout)
-            return;
         if (err != Error.Success)
-        {
-            Console.WriteLine("USB Write Error: {0}", err);
-            return;
-        }
+            return err;
         //Console.WriteLine("sendidx = {0}, {1} bytes", j++, pkt.dataSize);
 
         /* Then the data. */
         //Console.WriteLine(pkt.GetDataSize());
-        err = usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, out int dataSize);
-        if (err == Error.Timeout)
-            return;
-        if (err != Error.Success)
-        {
-            Console.WriteLine("USB Write Error: {0}", err);
-            return;
-        }
+        return usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, out int dataSize);
     }
 
+    void StopThreads()
+    {
+        /* Cancel current transfers. */
+        cancelSrc.Cancel();
+        usbIf.Cancel();
+        
+        /* Wait for both threads to exit. */
+        /* TODO: This "should" probably use async semaphores or similar. */
+        while (Interlocked.Read(ref recvDone) == 0) { }
+        while (Interlocked.Read(ref sendDone) == 0) { }
+        
+        /* Join them. */
+        recvThread.Join();
+        sendThread.Join();
+    }
+    
     int j =0;
     void SendThread()
     {
@@ -223,10 +234,18 @@ public class UsbPacketManager : IPacketManager
             //pkt.Print();
 
             /* Send it. */
-            SendPacketImpl(pkt);
+            Error err = SendPacketImpl(pkt);
             if (cancelSrc.Token.IsCancellationRequested)
             {
                 Interlocked.Exchange(ref sendDone, 1);
+                return;
+            }
+
+            /* Treat other errors as an abrupt disconnect. */
+            if (err != Error.Success)
+            {
+                Interlocked.Exchange(ref sendDone, 1);
+                NotifyAbruptDisconnect();
                 return;
             }
 
@@ -244,10 +263,18 @@ public class UsbPacketManager : IPacketManager
             Packet pkt = serviceManager.AllocRecvPacket();
 
             /* Wait for a message. */
-            RecvPacketImpl(ref pkt);
+            Error err = RecvPacketImpl(ref pkt);
             if (cancelSrc.Token.IsCancellationRequested)
             {
                 Interlocked.Exchange(ref recvDone, 1);
+                return;
+            }
+            
+            /* Treat other errors as an abrupt disconnect. */
+            if (err != Error.Success)
+            {
+                Interlocked.Exchange(ref recvDone, 1);
+                NotifyAbruptDisconnect();
                 return;
             }
 
