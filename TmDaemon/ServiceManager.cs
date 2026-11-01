@@ -59,9 +59,6 @@ public class ServiceManager
         
         /* Wait for the worker to finish. */
         doneEv.WaitOne();
-        
-        /* Cancel all current taskList. */
-        CancelAllTasks();
     }
     
     // for use by packet mgr.
@@ -148,10 +145,7 @@ public class ServiceManager
             catch (OperationCanceledException)
             {
                 Debug.Assert(isDone);
-                
-                /* Signal that we're done. */
-                doneEv.Set();
-                return;
+                break;
             }
 
             /* Call impl on it. */
@@ -163,6 +157,12 @@ public class ServiceManager
             /* Remove any finished taskList. */
             taskList.RemoveIf((task) => task.IsDone());
         }
+        
+        /* Cancel all current tasks. */
+        CancelAllTasks();
+        
+        /* Signal that we're done. */
+        doneEv.Set();
     }
 
     // called by PacketManager recv thread
