@@ -85,7 +85,7 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
 
     public override async Task<GetTargetUpdateReply> GetTargetUpdate(GetTargetUpdateRequest request, ServerCallContext context)
     {
-        TargetInfo? info = null;
+        TargetEvent? info = null;
         TargetResult result;
         try
         {
@@ -93,24 +93,19 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
         }
         catch (OperationCanceledException e)
         {
-            return new GetTargetUpdateReply()
-            {
-                Result = TargetResult.OperationCanceled
-            };
+            return new GetTargetUpdateReply() { Result = TargetResult.OperationCanceled };
         }
 
         if (result != TargetResult.Success)
         {
-            return new GetTargetUpdateReply()
-            {
-                Result = result,
-            };
+            return new GetTargetUpdateReply() { Result = result };
         }
 
         return new GetTargetUpdateReply()
         {
-            Result = TargetResult.Success,
-            Info   = info
+            Result    = TargetResult.Success,
+            EventType = info.EventType,
+            Info      = info.Info
         };
     }
 }

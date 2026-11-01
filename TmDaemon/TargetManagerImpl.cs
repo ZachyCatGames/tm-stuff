@@ -4,9 +4,25 @@ namespace Test;
 
 public class TargetManagerImpl : ITargetManager
 {
-    private Dictionary<string, Target> targets = new();
-    private List<ITargetProvider> providers = new();
+    private readonly Dictionary<string, Target> targets = new();
+    private readonly List<ITargetProvider> providers = new();
 
+    private readonly Dictionary<int, TargetManagerClientContext> clientContexts = new();
+    private readonly List<ITargetEventCallback> targetEvCallbacks = new();
+    private int currentContextId = 0;
+
+    private TargetInfo RegisterConnection(Target targ)
+    {
+        /* Register the target. */
+        targets[targ.Info.SerialNumber] = targ;
+        
+        /* Send a connect callback to all listeners. */
+        var info = targ.Info;
+        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(info, TargetEventType.Connected)));
+        
+        return info;
+    }
+    
     public TargetManagerImpl()
     {
         /* Create providers for USB and TICS (TODO). */
@@ -15,17 +31,37 @@ public class TargetManagerImpl : ITargetManager
 
     public async Task<int> InitializeClientContext()
     {
-        throw new NotImplementedException();
+        /* Allocate a context id. */
+        int contextId = Interlocked.Increment(ref currentContextId);
+        
+        /* Create a new client context. */
+        var ctx = new TargetManagerClientContext();
+        
+        /* Register context callback(s). */
+        targetEvCallbacks.Add(ctx.TargetEventCallback);
+        
+        /* Register the client context. */
+        clientContexts.Add(contextId, ctx);
+
+        return contextId;
     }
 
     public async Task<TargetResult> FinalizeClientContext(int contextId)
     {
-        throw new NotImplementedException();
-    }
+        /* Find the correct context. */
+        if (!clientContexts.TryGetValue(contextId, out var ctx))
+            return TargetResult.InvalidContextId;
 
-    public async Task<bool> IsValidContextId(int contextId)
-    {
-        throw new NotImplementedException();
+        /* Release the contextId. */
+        clientContexts.Remove(contextId);
+        
+        /* Unregister our callback. */
+        targetEvCallbacks.Remove(ctx.TargetEventCallback);
+        
+        /* Cancel any push/pop operations. */
+        ctx.CancelPop();
+
+        return TargetResult.Success;
     }
     
     public async Task<int> QueryTargetCountAsync(QueryType type)
@@ -63,9 +99,24 @@ public class TargetManagerImpl : ITargetManager
         return null;
     }
 
-    public Task<(TargetResult, TargetInfo?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken)
+    public async Task<(TargetResult, TargetEvent?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken)
     {
-        throw new NotImplementedException();
+        /* Find the correct context. */
+        if (!clientContexts.TryGetValue(contextId, out var ctx))
+            return (TargetResult.InvalidContextId, null);
+        
+        /* Wait for a port update. */
+        TargetEvent ev;
+        try
+        {
+            ev = await ctx.PopTargetEvent(cancelToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return (TargetResult.OperationCanceled, null);
+        }
+
+        return (TargetResult.Success, ev);
     }
 
     public async Task<TargetInfo?> ConnectTargetAsync(string serialNumber)
@@ -82,8 +133,7 @@ public class TargetManagerImpl : ITargetManager
             Target? targ = await provider.ConnectAsync(serialNumber);
             if (targ != null)
             {
-                targets[targ.Info.SerialNumber] = targ;
-                return targ.Info;
+                return RegisterConnection(targ);
             }
         }
         return null;
@@ -106,6 +156,9 @@ public class TargetManagerImpl : ITargetManager
         
         /* Remove the target from our dict. */
         targets.Remove(sn);
+        
+        /* Send a disconnect event to all listeners. */
+        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(targ.Info, TargetEventType.Disconnected)));
     }
 
     private async Task<List<TargetInfo>> QueryTargetInfosImpl(QueryType type)
