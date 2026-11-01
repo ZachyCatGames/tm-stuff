@@ -6,31 +6,31 @@ namespace Test;
 
 public class Target : IDisposable
 {
-    private ITargetManager parent;
+    private readonly ITargetManager parent;
 
-    private SemaphoreSlim asyncLock = new(1);
+    private readonly SemaphoreSlim asyncLock = new(1);
     
-    private ServiceManager serviceManager;
-    private IPacketManager packetManager;
+    private readonly ServiceManager serviceManager;
+    private readonly IPacketManager packetManager;
 
-    private HostFilesystemManager hostfsManager;
+    private readonly HostFilesystemManager hostfsManager;
 
-    private HostPortManager hostPortManager;
-    private HtcsSocketManager htcsManager;
+    private readonly HostPortManager hostPortManager;
+    private readonly HtcsSocketManager htcsManager;
 
-    private HostHtcsService htcsService;
-    private HostIOService hioService;
-    private HostDirectoryIOService hioDirService;
-    private HostEnvService envService;
+    private readonly HostHtcsService htcsService;
+    private readonly HostIOService hioService;
+    private readonly HostDirectoryIOService hioDirService;
+    private readonly HostEnvService envService;
     
-    private SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
+    private readonly SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 
     private int currentContextId;
-    private Dictionary<int, TargetClientContext> clientContexts;
+    private readonly Dictionary<int, TargetClientContext> clientContexts;
 
-    private Task disconnectMonitor;
-    private SemaphoreSlim disconnectSignal = new(0);
-    private CancellationTokenSource disconnectTokenSource = new();
+    private readonly Task disconnectMonitor;
+    private readonly SemaphoreSlim disconnectSignal = new(0);
+    private readonly CancellationTokenSource disconnectTokenSource = new();
     
     public TargetInfo Info { get; private set; }
     
@@ -90,15 +90,9 @@ public class Target : IDisposable
         packetManager.Dispose();
     }
 
-    public AsyncLockHolder AcquireLock()
-    {
-        return AsyncLockHolder.Enter(asyncLock);
-    }
+    public AsyncLockHolder AcquireLock() =>  AsyncLockHolder.Enter(asyncLock);
 
-    public Task<AsyncLockHolder> AcquireLockAsync()
-    {
-        return AsyncLockHolder.EnterAsync(asyncLock);
-    }
+    public Task<AsyncLockHolder> AcquireLockAsync() => AsyncLockHolder.EnterAsync(asyncLock);
 
     public void Connect()
     {
@@ -150,8 +144,8 @@ public class Target : IDisposable
     
     public void Disconnect()
     {
-        using (var h = AcquireLock())
-            DisconnectUnsafe();
+        using var l = AcquireLock();
+        DisconnectUnsafe();
     }
 
     public async Task DisconnectUnsafeAsync()
@@ -176,8 +170,8 @@ public class Target : IDisposable
 
     public async Task DisconnectAsync()
     {
-        using (var h = await AcquireLockAsync())
-            await DisconnectUnsafeAsync();
+        using var l = await AcquireLockAsync();
+        await DisconnectUnsafeAsync();
     }
 
     public async Task<int> InitializeClientContext()
@@ -189,7 +183,7 @@ public class Target : IDisposable
         var ctx = new TargetClientContext();
         
         /* Register context callback(s). */
-        htcsManager.RegisterEventCallback(ctx.PortEventCallback);
+        await htcsManager.RegisterEventCallbackAsync(ctx.PortEventCallback);
         
         /* Register the client context. */
         using (var h = await AcquireLockAsync())
@@ -209,7 +203,7 @@ public class Target : IDisposable
             clientContexts.Remove(contextId);
         
         /* Unregister our callback. */
-        await htcsManager.UnregisterEventCallback(ctx.PortEventCallback);
+        await htcsManager.UnregisterEventCallbackAsync(ctx.PortEventCallback);
         
         /* Cancel any push/pop operation. */
         ctx.CancelPop();

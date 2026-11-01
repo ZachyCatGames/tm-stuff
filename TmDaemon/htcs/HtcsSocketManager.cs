@@ -194,8 +194,8 @@ public class HtcsSocketManager : IDisposable
     
     private void RegisterPortSocket(int fd, TargetPort port)
     {
-        using (var s = AsyncLockHolder.Enter(socketsLock))
-            RegisterPortSocketUnsafe(fd, port);
+        using var l = AsyncLockHolder.Enter(socketsLock);
+        RegisterPortSocketUnsafe(fd, port);
     }
 
     private void CleanupPortSocketUnsafe(TargetPort port)
@@ -209,8 +209,8 @@ public class HtcsSocketManager : IDisposable
     
     private void CleanupPortSocket(TargetPort port)
     {
-        using (var s = AsyncLockHolder.Enter(socketsLock))
-            CleanupPortSocketUnsafe(port);
+        using var l = AsyncLockHolder.Enter(socketsLock);
+        CleanupPortSocketUnsafe(port);
     }
 
     public HtcsSocketManager(HostPortManager hpm)
@@ -262,22 +262,22 @@ public class HtcsSocketManager : IDisposable
         portEvObservers.Add(callback);
     }
     
-    public async Task RegisterEventCallback(IPortEventCallback callback)
+    public async Task RegisterEventCallbackAsync(IPortEventCallback callback)
     {
         /*
          * This lock prevents other threads from adding new sockets while
          * these events are being pushed, to avoid duplicate or dropped events
          * */
-        using (var s = await AsyncLockHolder.EnterAsync(socketsLock))
-            RegisterEventCallbackUnsafe(callback);
+        using var s = await AsyncLockHolder.EnterAsync(socketsLock);
+        RegisterEventCallbackUnsafe(callback);
     }
     
-    public async Task UnregisterEventCallbackUnsafe(IPortEventCallback callback) => portEvObservers.Remove(callback);
+    public void UnregisterEventCallbackUnsafe(IPortEventCallback callback) => portEvObservers.Remove(callback);
 
-    public async Task UnregisterEventCallback(IPortEventCallback callback)
+    public async Task UnregisterEventCallbackAsync(IPortEventCallback callback)
     {
-        using (var s = await AsyncLockHolder.EnterAsync(socketsLock))
-            UnregisterEventCallbackUnsafe(callback);
+        using var s = await AsyncLockHolder.EnterAsync(socketsLock);
+        UnregisterEventCallbackUnsafe(callback);
     }
 
     /* I should not be allowed to use one-liners */
