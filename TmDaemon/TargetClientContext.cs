@@ -17,7 +17,7 @@ public class TargetClientContext
         public void Notify(PortEvent ev) => parent.PushPortEvent(ev);
     }
 
-    private readonly PortCallbackImpl portCallback;
+    private readonly PortCallbackImpl        portCallback;
     private readonly CancellationTokenSource cancelPop = new();
     
     private readonly Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();

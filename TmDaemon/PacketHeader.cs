@@ -7,11 +7,10 @@ public struct PacketHeader
     public UInt32 serviceId;
     public UInt32 taskId;
     public UInt16 taskType;
-    public byte isInitiate;
-    public byte reserved_0xb;
-    public Int32 dataSize;
-
-
+    public byte   isInitiate;
+    public byte   reserved_0xb;
+    public Int32  dataSize;
+    
     public uint reserved_0x10;
     public uint reserved_0x14;
     public uint reserved_0x18;

@@ -5,11 +5,11 @@ using LibUsbDotNet.Main;
 
 public class UsbInterface : IDisposable
 {
-    private UsbDevice device;
-    private UsbEndpointWriter writer;
-    private UsbEndpointReader reader;
+    private readonly UsbDevice         device;
+    private readonly UsbEndpointWriter writer;
+    private readonly UsbEndpointReader reader;
 
-    private int timeout;
+    private int  timeout;
     private bool canceled;
     private Lock mutex;
 
@@ -33,17 +33,12 @@ public class UsbInterface : IDisposable
         device.Dispose();
     }
 
-    public void SetTimeout(int timeout)
-    {
-        this.timeout = timeout;
-    }
+    public void SetTimeout(int timeout) => this.timeout = timeout;
 
     public void Cancel()
     {
-        using (var scope = mutex.EnterScope())
-        {
-            canceled = true;
-        }
+        using var l = mutex.EnterScope();
+        canceled = true;
     }
 
     public Error Read(byte[] buf, out int readSize)
@@ -96,8 +91,5 @@ public class UsbInterface : IDisposable
         return Write(buf, 0, buf.Length, out writeSize);
     }
 
-    public int GetUsbDeviceNumber()
-    {
-        return device.Address | (device.BusNumber << 8);
-    }
+    public int GetUsbDeviceNumber() => device.Address | (device.BusNumber << 8);
 }

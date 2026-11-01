@@ -7,14 +7,15 @@ namespace Test;
 
 public class PacketQueue
 {
-    readonly BlockingCollection<Packet> queue;
-    readonly SemaphoreSlim addSem;
-    readonly SemaphoreSlim takeSem;
+    private readonly BlockingCollection<Packet> queue;
+    
+    private readonly SemaphoreSlim addSem;
+    private readonly SemaphoreSlim takeSem;
     
     public PacketQueue(int max)
     {
-        queue = new(max);
-        addSem = new(max);
+        queue   = new(max);
+        addSem  = new(max);
         takeSem = new(0);
     }
     

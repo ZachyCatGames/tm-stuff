@@ -4,7 +4,7 @@ namespace Test;
 
 public class TargetServiceImpl : Test.TargetService.TargetServiceBase
 {
-    private ITargetManager manager;
+    private readonly ITargetManager manager;
 
     public TargetServiceImpl(ITargetManager manager)
     {

@@ -4,12 +4,14 @@ namespace Test;
 
 public class TargetManagerImpl : ITargetManager
 {
-    private readonly Dictionary<string, Target> targets = new();
-    private readonly List<ITargetProvider> providers = new();
+    private readonly Dictionary<string, Target> targets   = new();
+    private readonly List<ITargetProvider>      providers = new();
 
-    private readonly Dictionary<int, TargetManagerClientContext> clientContexts = new();
+    private readonly Dictionary<int, TargetManagerClientContext> clientContexts   = new();
+    private int                                                  currentContextId = 0;
+    
     private readonly List<ITargetEventCallback> targetEvCallbacks = new();
-    private int currentContextId = 0;
+    
 
     private TargetInfo RegisterConnection(Target targ)
     {

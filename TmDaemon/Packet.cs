@@ -5,51 +5,49 @@ using System.Text;
 
 public class Packet
 {
-    public const int HeaderSize = 0x20;
-    public const int DataMaxSize = 0xE000;
+    public const int HeaderSize    = 0x20;
+    public const int DataMaxSize   = 0xE000;
     public const int PacketMaxSize = HeaderSize + DataMaxSize;
 
-    readonly PacketQueue sourceQueue;
+    private readonly PacketQueue sourceQueue;
 
-    byte[] buffer;
-    ArraySegment<byte> headerBuffer;
-    ArraySegment<byte> dataBuffer;
-    int bufferPos;
+    private readonly byte[]             buffer;
+    private readonly ArraySegment<byte> headerBuffer;
+    private readonly ArraySegment<byte> dataBuffer;
+    private int                         bufferPos;
 
-    public UInt32 serviceId;
-    public UInt32 taskId;
+    public UInt32   serviceId;
+    public UInt32   taskId;
     public TaskType taskType;
-    public bool isInitiate;
+    public bool     isInitiate;
     public int dataSize { get; private set; }
 
 
     public Packet(PacketQueue srcQ)
     {
-        sourceQueue = srcQ;
-        this.buffer  = new byte[PacketMaxSize];
+        sourceQueue       = srcQ;
+        this.buffer       = new byte[PacketMaxSize];
         this.headerBuffer = new ArraySegment<byte>(buffer, 0, HeaderSize);
-        this.dataBuffer = new ArraySegment<byte>(buffer, HeaderSize, DataMaxSize);
-        this.bufferPos = HeaderSize;
+        this.dataBuffer   = new ArraySegment<byte>(buffer, HeaderSize, DataMaxSize);
+        this.bufferPos    = HeaderSize;
     }
 
-    public void Reset()
-    {
-        bufferPos = HeaderSize;
-    }
+    public void Reset() => bufferPos = HeaderSize;
 
     public void ParseHeader()
     {
-        var hdr = new PacketHeader(buffer);
-        serviceId = hdr.serviceId;
-        taskId = hdr.taskId;
-        taskType = (TaskType)hdr.taskType;
+        var hdr    = new PacketHeader(buffer);
+        serviceId  = hdr.serviceId;
+        taskId     = hdr.taskId;
+        taskType   = (TaskType)hdr.taskType;
         isInitiate = hdr.isInitiate != 0;
-        dataSize = hdr.dataSize;
+        dataSize   = hdr.dataSize;
     }
 
     public void WriteHeader()
     {
         dataSize = bufferPos - HeaderSize;
+        
         var hdr = new PacketHeader(serviceId, taskId, (ushort)taskType, isInitiate ? (byte)1 : (byte)0, dataSize);
         hdr.WriteTo(buffer);
     }
@@ -61,45 +59,21 @@ public class Packet
         sourceQueue.Add(this);
     }
 
-    public byte[] GetBuffer()
-    {
-        return buffer;
-    }
+    public byte[] GetBuffer() => buffer;
 
-    public void AdvancePosition(int amt)
-    {
-        bufferPos += amt;
-    }
+    public void AdvancePosition(int amt) => bufferPos += amt;
     
-    public int GetRemainingSize()
-    {
-        return PacketMaxSize - bufferPos;
-    }
+    public int GetRemainingSize() => PacketMaxSize - bufferPos;
 
-    public ArraySegment<byte> GetHeaderBuffer()
-    {
-        return headerBuffer;
-    }
+    public ArraySegment<byte> GetHeaderBuffer() => headerBuffer;
 
-    public ArraySegment<byte> GetDataBuffer(int size)
-    {
-        return new ArraySegment<byte>(buffer, HeaderSize, size);
-    }
+    public ArraySegment<byte> GetDataBuffer(int size) => new ArraySegment<byte>(buffer, HeaderSize, size);
 
-    public ArraySegment<byte> GetDataBuffer(int offset, int size)
-    {
-        return new ArraySegment<byte>(buffer, HeaderSize + offset, size);
-    }
+    public ArraySegment<byte> GetDataBuffer(int offset, int size) => new ArraySegment<byte>(buffer, HeaderSize + offset, size);
     
-    public ArraySegment<byte> GetDataBuffer()
-    {
-        return dataBuffer;
-    }
+    public ArraySegment<byte> GetDataBuffer() => dataBuffer;
 
-    public int GetWrittenDataSize()
-    {
-        return bufferPos - HeaderSize;
-    }
+    public int GetWrittenDataSize() => bufferPos - HeaderSize;
 
     public void Write(bool v)
     {
@@ -181,9 +155,11 @@ public class Packet
 
     public ArraySegment<byte> Read(int c)
     {
-        var off = bufferPos - HeaderSize;
+        var off  = bufferPos - HeaderSize;
         var b = dataBuffer[off..(off + c)].ToArray();
-        bufferPos += c;
+        
+        bufferPos  += c;
+        
         return b;
     }
 

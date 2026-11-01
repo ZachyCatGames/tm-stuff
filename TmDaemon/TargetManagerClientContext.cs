@@ -16,7 +16,7 @@ public class TargetManagerClientContext
         public void Notify(TargetEvent ev) => parent.PushTargetEvent(ev);
     }
 
-    private readonly EventCallbackImpl evCallback;
+    private readonly EventCallbackImpl       evCallback;
     private readonly CancellationTokenSource cancelPop = new();
     
     private readonly Channel<TargetEvent> targetEventQueue = Channel.CreateUnbounded<TargetEvent>();

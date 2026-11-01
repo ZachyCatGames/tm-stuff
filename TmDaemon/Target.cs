@@ -16,13 +16,13 @@ public class Target : IDisposable
 
     private readonly HostFilesystemManager hostfsManager;
 
-    private readonly HostPortManager hostPortManager;
+    private readonly HostPortManager   hostPortManager;
     private readonly HtcsSocketManager htcsManager;
 
-    private readonly HostHtcsService htcsService;
-    private readonly HostIOService hioService;
+    private readonly HostHtcsService        htcsService;
+    private readonly HostIOService          hioService;
     private readonly HostDirectoryIOService hioDirService;
-    private readonly HostEnvService envService;
+    private readonly HostEnvService         envService;
     
     private readonly SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 

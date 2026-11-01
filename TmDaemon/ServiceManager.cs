@@ -7,21 +7,22 @@ public class ServiceManager
 {
     public const int SendPacketsCountMax = 20;
     public const int RecvPacketsCountMax = 20;
-    public const int JobCountMax = 20;
+    public const int JobCountMax         = 20;
 
     private bool initialized = false;
-    private bool isDone = false;
+    
+    private bool            isDone = false;
     private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
 
     private readonly List<Service> services = new();
-    private readonly TaskList taskList = new();
+    private readonly TaskList      taskList = new();
 
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
 
-    private IPacketManager packetMgr;
-    private readonly Thread workThread;
-    private readonly PacketQueue packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
+    private          IPacketManager packetMgr;
+    private readonly Thread         workThread;
+    private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
 
     private readonly Lock packetProcessMutex = new();
 
@@ -62,56 +63,25 @@ public class ServiceManager
     }
     
     // for use by packet mgr.
-    public void OnRecvPacket(Packet pkt)
-    {
-        packetQueue.Add(pkt);
-    }
+    public void OnRecvPacket(Packet pkt) => packetQueue.Add(pkt);
 
-    public IPacketManager GetPacketManager()
-    {
-        return packetMgr;
-    }
+    public IPacketManager GetPacketManager() => packetMgr;
 
-    public void SendPacket(Packet pkt)
-    {
-        packetMgr.SendPacket(pkt);
-    }
+    public void SendPacket(Packet pkt) => packetMgr.SendPacket(pkt);
     
-    public Task SendPacketAsync(Packet pkt)
-    {
-        return packetMgr.SendPacketAsync(pkt);
-    }
+    public Task SendPacketAsync(Packet pkt) => packetMgr.SendPacketAsync(pkt);
 
-    public void RegisterService(Service srv)
-    {
-        services.Add(srv);
-    }
+    public void RegisterService(Service srv) => services.Add(srv);
     
-    public Packet AllocRecvPacket()
-    {
-        return freePacketsForRecv.Take();
-    }
+    public Packet AllocRecvPacket() => freePacketsForRecv.Take();
 
-    public Task<Packet> AllocRecvPacketAsync()
-    {
-        return freePacketsForRecv.TakeAsync();
-    }
+    public Task<Packet> AllocRecvPacketAsync() => freePacketsForRecv.TakeAsync();
 
-    public Packet AllocSendPacket()
-    {
-        //Console.WriteLine("Fuck {0}", freePacketsForSend.Count);
-        return freePacketsForSend.Take();
-    }
+    public Packet AllocSendPacket() => freePacketsForSend.Take();
 
-    public Task<Packet> AllocSendPacketAsync()
-    {
-        return freePacketsForSend.TakeAsync();
-    }
+    public Task<Packet> AllocSendPacketAsync() => freePacketsForSend.TakeAsync();
 
-    public void RegisterTask(ServiceTask task)
-    {
-        taskList.AddTask(task);
-    }
+    public void RegisterTask(ServiceTask task) => taskList.AddTask(task);
 
     public void CancelAllTasks()
     {
@@ -132,7 +102,7 @@ public class ServiceManager
         });
     }
     
-    async void WorkThreadFunc()
+    private async void WorkThreadFunc()
     {
         while (true)
         {
@@ -166,7 +136,7 @@ public class ServiceManager
     }
 
     // called by PacketManager recv thread
-    void ProcessRecvPacketImpl(Packet pkt)
+    private void ProcessRecvPacketImpl(Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();

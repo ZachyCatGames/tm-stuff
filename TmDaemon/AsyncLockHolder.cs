@@ -4,7 +4,7 @@ namespace Test;
 
 public class AsyncLockHolder : IDisposable
 {
-    private SemaphoreSlim sem;
+    private readonly SemaphoreSlim sem;
         
     public AsyncLockHolder(SemaphoreSlim sem)
     {

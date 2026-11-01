@@ -28,6 +28,7 @@ public class UsbPacketManager : IPacketManager
     private bool isConnected;
     private bool isCommsDisabled;
     private long recvDone, sendDone;
+    
     private readonly CancellationTokenSource cancelSrc = new();
 
     private bool abruptDisconnectHandled = false;
@@ -42,11 +43,11 @@ public class UsbPacketManager : IPacketManager
         sendThread = new Thread(SendThread);
         recvThread = new Thread(RecvThread);
 
-        beaconPacket = null;
-        isConnected = false;
+        beaconPacket    = null;
+        isConnected     = false;
         isCommsDisabled = false;
-        recvDone = 0;
-        sendDone = 0;
+        recvDone        = 0;
+        sendDone        = 0;
     }
 
     public void Dispose()
@@ -89,9 +90,7 @@ public class UsbPacketManager : IPacketManager
     {
         /* Do nothing if we're already connected. */
         if (isConnected)
-        {
             return;
-        }
         
         /* Send a connect packet. */
         GetBeaconPacketImpl(InitializeServiceId);
@@ -122,7 +121,7 @@ public class UsbPacketManager : IPacketManager
         /* Use cached packet if already cached. */
         if (beaconPacket != null)
         {
-            beacon =  beaconPacket;
+            beacon = beaconPacket;
             return;
         }
 
@@ -187,7 +186,7 @@ public class UsbPacketManager : IPacketManager
     {
         /* First, send the header. */
         byte[] buf = pkt.GetBuffer();
-        Error err = usbIf.Write(buf, 0, Packet.HeaderSize, out int hdrSize);
+        Error err  = usbIf.Write(buf, 0, Packet.HeaderSize, out int hdrSize);
         if (err != Error.Success)
             return err;
         //Console.WriteLine("sendidx = {0}, {1} bytes", j++, pkt.dataSize);

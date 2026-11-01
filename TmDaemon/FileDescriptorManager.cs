@@ -1,19 +1,19 @@
 namespace Test;
 
 public class FileDescriptorManager<T> {
-    int curFileDescriptor;
-    readonly T?[] objects;
+    private int           curFileDescriptor;
+    private readonly T?[] objects;
     
     public readonly int MaxObjectCount;
     
     public FileDescriptorManager(int count)
     {
-        this.MaxObjectCount = count;
-        this.objects = new T[count];
+        MaxObjectCount = count;
+        objects        = new T[count];
         
         for (int i = 0; i < count; i++)
         {
-            this.objects[i] = default(T);
+            objects[i] = default(T);
         }
     }
     

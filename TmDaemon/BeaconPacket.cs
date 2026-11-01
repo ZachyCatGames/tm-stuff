@@ -6,16 +6,16 @@ public struct BeaconPacket
     
     public string Spec;
     public string TMA;
-    public int TMIPC;
+    public int    TMIPC;
     public string Conn;
     public string HW;
     public string Name;
     public string SN;
-    public int BCID;
-    public int PS;
-    public int PMS;
+    public int    BCID;
+    public int    PS;
+    public int    PMS;
     public string FW;
-    public int CD;
+    public int    CD;
 
     public BeaconPacket(string beacon)
     {

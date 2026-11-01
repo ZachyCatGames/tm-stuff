@@ -4,8 +4,9 @@ public class TaskList
 {
     public const int PriorityLevelCount = 10;
 
-    List<ServiceTask>[] list;
-    Lock listLock;
+    private readonly List<ServiceTask>[] list;
+    
+    private readonly Lock listLock;
 
     public TaskList()
     {

@@ -3,7 +3,7 @@ using Grpc.Core;
 
 public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServiceBase
 {
-    private ITargetManager manager;
+    private readonly ITargetManager manager;
     
     public TargetManagerServiceImpl(ITargetManager manager)
     {
