@@ -170,6 +170,43 @@ public class HtcsSocketManager : IDisposable
     
     private readonly List<TargetPort> targetPorts = new();
     private readonly List<SessionSocket> sessions = new();
+    private readonly Lock socketsLock = new();
+
+    private readonly List<IPortEventCallback> portEvObservers = new();
+
+    private int AllocateFileDescriptor() => this.sockets.AllocateFileDescriptor();
+
+    private TargetPort? FindPortByName(string portName) => targetPorts.Find((sock) => sock.portName == portName);
+
+    private bool DoesPortNameExist(string portName) => hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
+
+    
+    private void RegisterPortSocket(int fd, TargetPort port)
+    {
+        using (var s = socketsLock.EnterScope())
+        {
+            /* Assign it to the file descriptor. */
+            sockets[fd] = port;
+            
+            /* Add it to the port list. */
+            targetPorts.Add(port);
+            
+            /* Send an added event to each port event observer. */
+            portEvObservers.ForEach(c => c.Callback(new PortEvent(port.Info, PortEventType.Added)));
+        }
+    }
+
+    private void CleanupPortSocket(TargetPort port)
+    {
+        using (var s = socketsLock.EnterScope())
+        {
+            /* Remove it from the port list. */
+            targetPorts.Remove(port);
+            
+            /* Send an event to each port even observer. */
+            portEvObservers.ForEach(c => c.Callback(new PortEvent(port.Info, PortEventType.Removed)));
+        }
+    }
 
     public HtcsSocketManager(HostPortManager hpm)
     {
@@ -192,12 +229,6 @@ public class HtcsSocketManager : IDisposable
         /* Close all used file descriptors. */
         sockets.Clear();
     }
-
-    int AllocateFileDescriptor() => this.sockets.AllocateFileDescriptor();
-
-    TargetPort? FindPortByName(string portName) => targetPorts.Find((sock) => sock.portName == portName);
-
-    bool DoesPortNameExist(string portName) => hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
     
     public int PortCount => targetPorts.Count;
     
@@ -210,6 +241,30 @@ public class HtcsSocketManager : IDisposable
         }
 
         return null;
+    }
+
+    public void RegisterEventCallback(IPortEventCallback callback)
+    {
+        if (portEvObservers.Contains(callback))
+            return;
+
+        /*
+         * This lock prevents other threads from adding new sockets while
+         * these events are being pushed, to avoid duplicate or dropped events
+         * */
+        using (var s = socketsLock.EnterScope())
+        {
+            /* Push creation events for all current target ports. */
+            targetPorts.ForEach(port => callback.Callback(new PortEvent(port.Info, PortEventType.Added)));
+
+            /* Register the callback. */
+            portEvObservers.Add(callback);
+        }
+    }
+
+    public void UnregisterEventCallback(IPortEventCallback callback)
+    {
+        portEvObservers.Remove(callback);
     }
 
     /* I should not be allowed to use one-liners */
@@ -236,20 +291,20 @@ public class HtcsSocketManager : IDisposable
         if (sockets[fd] == null)
             throw new HtcsException(ErrorCode.HTCS_EBADF);
         
+        /* Free the file descriptor. */
+        sockets[fd].Dispose();
+        sockets[fd] = null;
+        
         /* Remove it from the appropriate list. */
         var s = sockets[fd];
         if (s is TargetPort t)
         {
-            targetPorts.Remove(t);
+            CleanupPortSocket(t);
         }
         else if (s is SessionSocket ses)
         {
             sessions.Remove(ses);
         }
-
-        /* Free the socket. */
-        sockets[fd].Dispose();
-        sockets[fd] = null;
     }
 
     public void Bind(int fd, SockAddrHtcs addr)
@@ -272,12 +327,9 @@ public class HtcsSocketManager : IDisposable
         /* Create a new Port socket. */
         // TODO: register the socket under the target's name
         var port = new TargetPort(fd, addr);
-
-        /* Assign it to the file descriptor. */
-        sockets[fd] = port;
         
-        /* Add it to the port list. */
-        targetPorts.Add(port);
+        /* Register the port with fd. */
+        RegisterPortSocket(fd, port);
     }
 
     public void Listen(int fd, int backlogCount)
