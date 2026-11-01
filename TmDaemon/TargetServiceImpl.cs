@@ -73,13 +73,11 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
         if (target == null)
             return new FiniTargetClientContextReply { Result = TargetResult.NotConnected };
         
-        bool success = await target.FinalizeClientContext(request.ContextId);
-        if (!success)
-            return new FiniTargetClientContextReply() { Result = TargetResult.InvalidContextId };
-        
+        TargetResult res = await target.FinalizeClientContext(request.ContextId);
+
         return new FiniTargetClientContextReply()
         {
-            Result = TargetResult.Success,
+            Result    = res,
             ContextId = request.ContextId
         };
     }
@@ -134,25 +132,26 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
         return reply;
     }
     
-    public override async Task<GetNewHtcsPortInfoReply> GetNewHtcsPortInfo(GetNewHtcsPortInfoRequest request, ServerCallContext context)
+    public override async Task<GetHtcsPortUpdateReply> GetHtcsPortUpdate(GetHtcsPortUpdateRequest request, ServerCallContext context)
     {
         /* Get the target. */
         var target = await manager.GetTargetAsync(request.SerialNumber);
         if (target == null)
-            return new GetNewHtcsPortInfoReply { Result = TargetResult.NotConnected };
+            return new GetHtcsPortUpdateReply { Result = TargetResult.NotConnected };
         
         /* Call on target. */
-        var (result, info) = await target.GetNewHtcsPortInfoAsync(request.ContextId, context.CancellationToken);
+        var (result, info) = await target.GetHtcsPortUpdateAsync(request.ContextId, context.CancellationToken);
 
         /* Return error reply on error. */
         if (result != TargetResult.Success)
-            return new GetNewHtcsPortInfoReply() { Result = result };
+            return new GetHtcsPortUpdateReply() { Result = result };
         
         /* Setup our reply. */
-        return new GetNewHtcsPortInfoReply
+        return new GetHtcsPortUpdateReply
         {
-            Result = result,
-            Info   = info
+            Result    = result,
+            EventType = info.EventType,
+            Info      = info.PortInfo
         };
     }
 }

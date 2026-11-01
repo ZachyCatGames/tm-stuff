@@ -23,6 +23,9 @@ public class Target : IDisposable
     
     private SemaphoreSlim doneSignal =  new SemaphoreSlim(0);
 
+    private int currentContextId;
+    private Dictionary<int, TargetClientContext> clientContexts;
+    
     public TargetInfo Info { get; private set; }
 
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
@@ -51,6 +54,10 @@ public class Target : IDisposable
         
         /* Get initial info. */
         Info = packetManager.GetTargetInfo();
+        
+        /* Setup client context vars. */
+        currentContextId = 0;
+        clientContexts   = new();
     }
 
     public void Dispose()
@@ -120,12 +127,37 @@ public class Target : IDisposable
 
     public async Task<int> InitializeClientContext()
     {
-        throw new NotImplementedException();
+        /* Allocate a context id. */
+        int contextId = Interlocked.Increment(ref currentContextId);
+        
+        /* Create a new client context. */
+        var ctx = new TargetClientContext();
+        
+        /* Register context callback(s). */
+        htcsManager.RegisterEventCallback(ctx.PortEventCallback);
+        
+        /* Register the client context. */
+        clientContexts.Add(contextId, ctx);
+
+        return contextId;
     }
 
-    public async Task<bool> FinalizeClientContext(int contextId)
+    public async Task<TargetResult> FinalizeClientContext(int contextId)
     {
-        throw new NotImplementedException();
+        /* Find the correct context. */
+        if (!clientContexts.TryGetValue(contextId, out var ctx))
+            return TargetResult.InvalidContextId;
+
+        /* Release the contextId. */
+        clientContexts.Remove(contextId);
+        
+        /* Unregister our callback. */
+        htcsManager.UnregisterEventCallback(ctx.PortEventCallback);
+        
+        /* Cancel any push/pop operation. */
+        ctx.CancelPop();
+
+        return TargetResult.Success;
     }
 
     public PortInfo? QueryHtcsPortByName(string portName) => htcsManager.GetPortInfoByName(portName);
@@ -134,9 +166,24 @@ public class Target : IDisposable
 
     public List<PortInfo> QueryHtcsPortInfos(int maxCount) => htcsManager.GetPortInfos(maxCount);
 
-    public async Task<(TargetResult, htcs.PortInfo?)> GetNewHtcsPortInfoAsync(int contextId, CancellationToken cancelToken)
+    public async Task<(TargetResult, htcs.PortEvent?)> GetHtcsPortUpdateAsync(int contextId, CancellationToken cancelToken)
     {
-        return (TargetResult.NotImplemented, null);
+        /* Find the correct context. */
+        if (!clientContexts.TryGetValue(contextId, out var ctx))
+            return (TargetResult.InvalidContextId, null);
+        
+        /* Wait for a port update. */
+        PortEvent ev;
+        try
+        {
+            ev = await ctx.PopPortEventAsync(cancelToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return (TargetResult.OperationCanceled, null);
+        }
+
+        return (TargetResult.Success, ev);
     }
     
     public IPacketManager GetPacketManager()

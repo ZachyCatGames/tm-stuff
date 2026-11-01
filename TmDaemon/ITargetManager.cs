@@ -3,7 +3,7 @@ namespace Test;
 public interface ITargetManager
 {
     public Task<int> InitializeClientContext();
-    public Task<bool> FinalizeClientContext(int contextId);
+    public Task<TargetResult> FinalizeClientContext(int contextId);
     public Task<bool> IsValidContextId(int contextId);
     
     public Task<int> QueryTargetCountAsync(QueryType type);

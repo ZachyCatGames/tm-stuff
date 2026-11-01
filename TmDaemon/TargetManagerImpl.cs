@@ -18,7 +18,7 @@ public class TargetManagerImpl : ITargetManager
         throw new NotImplementedException();
     }
 
-    public async Task<bool> FinalizeClientContext(int contextId)
+    public async Task<TargetResult> FinalizeClientContext(int contextId)
     {
         throw new NotImplementedException();
     }

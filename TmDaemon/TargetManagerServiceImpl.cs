@@ -32,13 +32,11 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
     
     public override async Task<FiniManagerClientContextReply> FinalizeUserContext(FiniManagerClientContextRequest request, ServerCallContext context)
     {
-        bool success = await manager.FinalizeClientContext(request.ContextId);
-        if (!success)
-            return new FiniManagerClientContextReply() { Result = TargetResult.InvalidContextId };
-        
+        TargetResult res = await manager.FinalizeClientContext(request.ContextId);
+
         return new FiniManagerClientContextReply()
         {
-            Result = TargetResult.Success,
+            Result    = res,
             ContextId = request.ContextId
         };
     }
