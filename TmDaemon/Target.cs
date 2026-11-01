@@ -7,6 +7,8 @@ namespace Test;
 public class Target : IDisposable
 {
     private ITargetManager parent;
+
+    private SemaphoreSlim asyncLock = new(1);
     
     private ServiceManager serviceManager;
     private IPacketManager packetManager;
@@ -25,9 +27,13 @@ public class Target : IDisposable
 
     private int currentContextId;
     private Dictionary<int, TargetClientContext> clientContexts;
+
+    private Task disconnectMonitor;
+    private SemaphoreSlim disconnectSignal = new(0);
+    private CancellationTokenSource disconnectTokenSource = new();
     
     public TargetInfo Info { get; private set; }
-
+    
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
     {
         this.parent = parent;
@@ -58,11 +64,40 @@ public class Target : IDisposable
         /* Setup client context vars. */
         currentContextId = 0;
         clientContexts   = new();
+        
+        /* Run abrupt disconnect monitor. */
+        disconnectMonitor = DisconnectMonitor();
+    }
+
+    private async Task DisconnectMonitor()
+    {
+        /* Wait for a disconnect. */
+        try
+        {
+            await disconnectSignal.WaitAsync(disconnectTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        
+        /* Disconnect. */
+        await DisconnectAsync();
     }
 
     public void Dispose()
     {
         packetManager.Dispose();
+    }
+
+    public AsyncLockHolder AcquireLock()
+    {
+        return AsyncLockHolder.Enter(asyncLock);
+    }
+
+    public Task<AsyncLockHolder> AcquireLockAsync()
+    {
+        return AsyncLockHolder.EnterAsync(asyncLock);
     }
 
     public void Connect()
@@ -77,8 +112,15 @@ public class Target : IDisposable
         Info.Status = TargetStatus.Connected;
     }
 
-    private void DisconnectImpl()
+    private void DisconnectUnsafe()
     {
+        /* Cancel the abrupt disconnect monitor. */
+        disconnectTokenSource.Cancel();
+        
+        /* Do nothing if already disconnected. */
+        if (Info.Status == TargetStatus.Disconnected)
+            return;
+        
         /* Finalize service manager. */
         serviceManager.Finalize();
         
@@ -108,27 +150,34 @@ public class Target : IDisposable
     
     public void Disconnect()
     {
-        DisconnectImpl();
+        using (var h = AcquireLock())
+            DisconnectUnsafe();
     }
 
-    public async Task DisconnectAsync()
+    public async Task DisconnectUnsafeAsync()
     {
         /* Run the disconnect routine in a thread. */
-        var thread = new Thread(() =>
+        var thread = new Thread(async () =>
         {
             /* Disconnect from the target. */
-            DisconnectImpl();
-        
+            DisconnectUnsafe();
+
             /* Signal that we've finished. */
             doneSignal.Release();
         });
         thread.Start();
-        
+
         /* Wait for it to finish. */
         await doneSignal.WaitAsync();
-        
+
         /* Join it. */
         thread.Join();
+    }
+
+    public async Task DisconnectAsync()
+    {
+        using (var h = await AcquireLockAsync())
+            await DisconnectUnsafeAsync();
     }
 
     public async Task<int> InitializeClientContext()
@@ -143,7 +192,8 @@ public class Target : IDisposable
         htcsManager.RegisterEventCallback(ctx.PortEventCallback);
         
         /* Register the client context. */
-        clientContexts.Add(contextId, ctx);
+        using (var h = await AcquireLockAsync())
+            clientContexts.Add(contextId, ctx);
 
         return contextId;
     }
@@ -155,10 +205,11 @@ public class Target : IDisposable
             return TargetResult.InvalidContextId;
 
         /* Release the contextId. */
-        clientContexts.Remove(contextId);
+        using (var h = await AcquireLockAsync())
+            clientContexts.Remove(contextId);
         
         /* Unregister our callback. */
-        htcsManager.UnregisterEventCallback(ctx.PortEventCallback);
+        await htcsManager.UnregisterEventCallback(ctx.PortEventCallback);
         
         /* Cancel any push/pop operation. */
         ctx.CancelPop();
@@ -175,8 +226,12 @@ public class Target : IDisposable
     public async Task<(TargetResult, htcs.PortEvent?)> GetHtcsPortUpdateAsync(int contextId, CancellationToken cancelToken)
     {
         /* Find the correct context. */
-        if (!clientContexts.TryGetValue(contextId, out var ctx))
-            return (TargetResult.InvalidContextId, null);
+        TargetClientContext? ctx;
+        using (var h = await AcquireLockAsync())
+        {
+            if (!clientContexts.TryGetValue(contextId, out ctx))
+                return (TargetResult.InvalidContextId, null);
+        }
         
         /* Wait for a port update. */
         PortEvent ev;
@@ -195,5 +250,10 @@ public class Target : IDisposable
     public IPacketManager GetPacketManager()
     {
         return packetManager;
+    }
+    
+    public void NotifyAbruptDisconnect()
+    {
+        disconnectSignal.Release();
     }
 }

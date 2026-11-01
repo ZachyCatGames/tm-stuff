@@ -49,6 +49,7 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
             return new InitTargetClientContextReply { Result = TargetResult.NotConnected };
         
         int contextId = await target.InitializeClientContext();
+
         if (contextId < 0)
         {
             /* TODO: What result should this be? */

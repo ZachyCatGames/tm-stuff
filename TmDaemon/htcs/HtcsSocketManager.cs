@@ -170,7 +170,7 @@ public class HtcsSocketManager : IDisposable
     
     private readonly List<TargetPort> targetPorts = new();
     private readonly List<SessionSocket> sessions = new();
-    private readonly Lock socketsLock = new();
+    private readonly SemaphoreSlim socketsLock = new(1);
 
     private readonly List<IPortEventCallback> portEvObservers = new();
 
@@ -180,32 +180,37 @@ public class HtcsSocketManager : IDisposable
 
     private bool DoesPortNameExist(string portName) => hostPortMgr.DoesPortNameExist(portName) || this.FindPortByName(portName) != null;
 
+    private void RegisterPortSocketUnsafe(int fd, TargetPort port)
+    {
+        /* Assign it to the file descriptor. */
+        sockets[fd] = port;
+            
+        /* Add it to the port list. */
+        targetPorts.Add(port);
+            
+        /* Send an added event to each port event observer. */
+        portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Added)));
+    }
     
     private void RegisterPortSocket(int fd, TargetPort port)
     {
-        using (var s = socketsLock.EnterScope())
-        {
-            /* Assign it to the file descriptor. */
-            sockets[fd] = port;
-            
-            /* Add it to the port list. */
-            targetPorts.Add(port);
-            
-            /* Send an added event to each port event observer. */
-            portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Added)));
-        }
+        using (var s = AsyncLockHolder.Enter(socketsLock))
+            RegisterPortSocketUnsafe(fd, port);
     }
 
+    private void CleanupPortSocketUnsafe(TargetPort port)
+    {
+        /* Remove it from the port list. */
+        targetPorts.Remove(port);
+            
+        /* Send an event to each port even observer. */
+        portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Removed)));
+    }
+    
     private void CleanupPortSocket(TargetPort port)
     {
-        using (var s = socketsLock.EnterScope())
-        {
-            /* Remove it from the port list. */
-            targetPorts.Remove(port);
-            
-            /* Send an event to each port even observer. */
-            portEvObservers.ForEach(c => c.Notify(new PortEvent(port.Info, PortEventType.Removed)));
-        }
+        using (var s = AsyncLockHolder.Enter(socketsLock))
+            CleanupPortSocketUnsafe(port);
     }
 
     public HtcsSocketManager(HostPortManager hpm)
@@ -232,39 +237,47 @@ public class HtcsSocketManager : IDisposable
     
     public int PortCount => targetPorts.Count;
     
+    public AsyncLockHolder AcquireLock() => AsyncLockHolder.Enter(socketsLock);
+
+    public async Task<AsyncLockHolder> AcquireLockAsync() => await AsyncLockHolder.EnterAsync(socketsLock);
+    
     public PortInfo? GetPortInfoByName(string portName)
     {
         var port = FindPortByName(portName);
         if (port is not null)
-        {
             return port.Info;
-        }
 
         return null;
     }
 
-    public void RegisterEventCallback(IPortEventCallback callback)
+    public void RegisterEventCallbackUnsafe(IPortEventCallback callback)
     {
         if (portEvObservers.Contains(callback))
             return;
+            
+        /* Push creation events for all current target ports. */
+        targetPorts.ForEach(port => callback.Notify(new PortEvent(port.Info, PortEventType.Added)));
 
+        /* Register the callback. */
+        portEvObservers.Add(callback);
+    }
+    
+    public async Task RegisterEventCallback(IPortEventCallback callback)
+    {
         /*
          * This lock prevents other threads from adding new sockets while
          * these events are being pushed, to avoid duplicate or dropped events
          * */
-        using (var s = socketsLock.EnterScope())
-        {
-            /* Push creation events for all current target ports. */
-            targetPorts.ForEach(port => callback.Notify(new PortEvent(port.Info, PortEventType.Added)));
-
-            /* Register the callback. */
-            portEvObservers.Add(callback);
-        }
+        using (var s = await AsyncLockHolder.EnterAsync(socketsLock))
+            RegisterEventCallbackUnsafe(callback);
     }
+    
+    public async Task UnregisterEventCallbackUnsafe(IPortEventCallback callback) => portEvObservers.Remove(callback);
 
-    public void UnregisterEventCallback(IPortEventCallback callback)
+    public async Task UnregisterEventCallback(IPortEventCallback callback)
     {
-        portEvObservers.Remove(callback);
+        using (var s = await AsyncLockHolder.EnterAsync(socketsLock))
+            UnregisterEventCallbackUnsafe(callback);
     }
 
     /* I should not be allowed to use one-liners */
