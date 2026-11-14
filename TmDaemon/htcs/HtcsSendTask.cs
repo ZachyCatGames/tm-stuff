@@ -5,7 +5,7 @@ public class HtcsSendTask : ServiceTask
     Int32 sentSoFar;
     HtcsSocketManager htcsManager;
 
-    public HtcsSendTask(Service parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Send, taskId, 0)
+    public HtcsSendTask(IService parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Send, taskId, 0)
     {
         this.htcsManager = manager;
     }

@@ -2,7 +2,7 @@
 
 namespace Test.env;
 
-public class HostEnvService : Service
+public class HostEnvService : ServiceBase
 {
     public const uint serviceId = 0xC191DAC9;
 

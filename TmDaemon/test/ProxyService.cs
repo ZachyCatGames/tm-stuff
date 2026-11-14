@@ -4,7 +4,7 @@ using Microsoft.VisualBasic;
 
 namespace Test.test;
 
-public class ProxyService : Service
+public class ProxyService : ServiceBase
 {
     readonly Thread workThread;
     Socket connection;

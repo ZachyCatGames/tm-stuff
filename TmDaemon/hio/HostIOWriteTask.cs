@@ -9,7 +9,7 @@ public class HostIOWriteTask : ServiceTask
 {
     HostFilesystemManager mgr;
 
-    public HostIOWriteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.WriteFile, taskId, 0)
+    public HostIOWriteTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.WriteFile, taskId, 0)
     {
         this.mgr = mgr;
     }

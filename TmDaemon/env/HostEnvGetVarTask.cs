@@ -6,7 +6,7 @@ namespace Test.env;
 
 public class HostEnvGetVarTask : ServiceTask
 {
-    public HostEnvGetVarTask(Service parent, uint taskId) : base(parent, TaskType.GetVar, taskId, 0)
+    public HostEnvGetVarTask(IService parent, uint taskId) : base(parent, TaskType.GetVar, taskId, 0)
     {}
 
     protected override async Task Run()

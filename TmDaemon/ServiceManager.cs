@@ -17,7 +17,7 @@ public class ServiceManager
     private SemaphoreSlim doneEv = new(0);
     //private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
 
-    private readonly List<Service> services = new();
+    private readonly List<IService> services = new();
     private readonly TaskList      taskList = new();
 
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
@@ -85,7 +85,7 @@ public class ServiceManager
     }
     
     /* External service/task management. */
-    public void RegisterService(Service srv) => services.Add(srv);
+    public void RegisterService(IService srv) => services.Add(srv);
 
     public void RegisterNewTask(ServiceTask task)
     {
@@ -193,7 +193,7 @@ public class ServiceManager
             var serviceId = pkt.serviceId;
             foreach (var service in services)
             {
-                if (service.serviceId == serviceId)
+                if (service.AcceptsServicesId(serviceId))
                 {
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {

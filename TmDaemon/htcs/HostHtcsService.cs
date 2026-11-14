@@ -2,7 +2,7 @@ using Test.htcs;
 namespace Test.htcs;
 
 
-public class HostHtcsService : Service
+public class HostHtcsService : ServiceBase
 {
     const uint ServiceId = 0xB644D830;
     HtcsSocketManager manager;

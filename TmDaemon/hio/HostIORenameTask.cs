@@ -6,7 +6,7 @@ public class HostIORenameTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIORenameTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.RenameFile, taskId, 0)
+    public HostIORenameTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.RenameFile, taskId, 0)
     {
         this.mgr = mgr;
     }

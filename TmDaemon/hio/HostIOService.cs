@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace Test.hio;
 
-public class HostIOService : Service {
+public class HostIOService : ServiceBase {
     public const uint ServiceId = 0x5FAE4D7E;
 
     readonly HostFilesystemManager hostfsMgr;

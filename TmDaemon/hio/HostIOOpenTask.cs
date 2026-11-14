@@ -6,7 +6,7 @@ public class HostIOOpenTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOOpenTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenFile, taskId, 0)
+    public HostIOOpenTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenFile, taskId, 0)
     {
         this.mgr = mgr;
     }

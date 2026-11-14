@@ -16,14 +16,27 @@ public class UsbPacketManager : IPacketManager
     // send host info + no reply
     private const UInt32 SendHostInfoServiceId      = 0x4d4a6c24;
 
-    private class ManagerService : Service
+    private class ManagerService : IService
     {
-        public ManagerService(ServiceManager mgr) : base(0x0, mgr)
+        private readonly ServiceManager manager;
+        public ManagerService(ServiceManager mgr)
         {
-            
+            manager = mgr;
         }
 
-        public override ServiceTask? ProcessNewRequest(Packet pkt)
+        public ServiceManager GetManager() => manager;
+
+        public bool AcceptsServicesId(uint serviceId)
+        {
+            return serviceId == InitializeServiceId ||
+                   serviceId == FinalizeServiceId ||
+                   serviceId == QueryBeaconPacketServiceId ||
+                   serviceId == SendHostInfoServiceId;
+        }
+        
+        public UInt32 GetPrimaryServiceId() => 0;
+
+        public ServiceTask? ProcessNewRequest(Packet pkt)
         {
             throw new NotImplementedException();
         }
@@ -109,16 +122,16 @@ public class UsbPacketManager : IPacketManager
     private bool abruptDisconnectHandled = false;
     private readonly Lock abruptDisconnectLock = new();
 
-    private readonly ManagerService managerServiceStub;
+    private readonly ManagerService managerService;
 
-    private SemaphoreSlim cancelSem; 
+    private SemaphoreSlim cancelSem;
 
     public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
         usbIf          = usb;
         this.parent    = parent;
-        managerServiceStub = new(serviceManager);
+        managerService = new(serviceManager);
         
         sendThread = new Thread(SendThread);
         recvThread = new Thread(RecvThread);
@@ -191,7 +204,7 @@ public class UsbPacketManager : IPacketManager
         /* Send the disconnect packet. */
         if (sendDcPkt)
         {
-            NormalTask task = new(FinalizeServiceId, managerServiceStub);
+            NormalTask task = new(FinalizeServiceId, managerService);
             serviceManager.RegisterNewTask(task);
             await task.WaitDoneAsync();
         }
@@ -236,7 +249,7 @@ public class UsbPacketManager : IPacketManager
     public async Task SendNormalTaskImplAsync(UInt32 serviceId)
     {
         /* Query via get info cmd. */
-        var task = new NormalTask(serviceId, managerServiceStub);
+        var task = new NormalTask(serviceId, managerService);
         serviceManager.RegisterNewTask(task);
         
         /* Wait for it to finish. */
@@ -246,7 +259,7 @@ public class UsbPacketManager : IPacketManager
     public async Task SendBeaconTaskImplAsync(UInt32 serviceId)
     {
         /* Query via get info cmd. */
-        var task = new BeaconTask(serviceId, managerServiceStub);
+        var task = new BeaconTask(serviceId, managerService);
         serviceManager.RegisterNewTask(task);
         
         /* Wait for it to finish. */

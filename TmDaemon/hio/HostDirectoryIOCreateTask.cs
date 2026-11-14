@@ -6,7 +6,7 @@ public class HostDirectoryIOCreateTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOCreateTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CreateDirectory, taskId, 0)
+    public HostDirectoryIOCreateTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CreateDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }

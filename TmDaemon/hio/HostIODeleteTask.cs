@@ -6,7 +6,7 @@ public class HostIODeleteTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIODeleteTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.DeleteFile, taskId, 0)
+    public HostIODeleteTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.DeleteFile, taskId, 0)
     {
         this.mgr = mgr;
     }

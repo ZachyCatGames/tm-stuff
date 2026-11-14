@@ -6,7 +6,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOCloseTask(Service parent, HostFilesystemManager hostfsMgr, uint taskId) : base(parent, TaskType.CloseDirectory, taskId, 0)
+    public HostDirectoryIOCloseTask(IService parent, HostFilesystemManager hostfsMgr, uint taskId) : base(parent, TaskType.CloseDirectory, taskId, 0)
     {
         mgr = hostfsMgr;
     }

@@ -6,7 +6,7 @@ public class HostDirectoryIOReadTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadDirectory, taskId, 0)
+    public HostDirectoryIOReadTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }

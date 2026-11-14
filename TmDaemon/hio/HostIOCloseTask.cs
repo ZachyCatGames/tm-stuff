@@ -6,7 +6,7 @@ class HostIOCloseTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOCloseTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CloseFile, taskId, 0)
+    public HostIOCloseTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CloseFile, taskId, 0)
     {
         this.mgr = mgr;
     }

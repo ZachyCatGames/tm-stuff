@@ -6,7 +6,7 @@ public class HostDirectoryIOGetEntryCountTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostDirectoryIOGetEntryCountTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetDirectoryEntryCount, taskId, 0)
+    public HostDirectoryIOGetEntryCountTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetDirectoryEntryCount, taskId, 0)
     {
         this.mgr = mgr;
     }

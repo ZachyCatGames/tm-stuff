@@ -6,7 +6,7 @@ public class HostIOSetPriorityTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOSetPriorityTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetPriorityForFile, taskId, 0)
+    public HostIOSetPriorityTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetPriorityForFile, taskId, 0)
     {
         this.mgr = mgr;
     }

@@ -10,7 +10,7 @@ public abstract class ServiceTask
 
     public bool hasFollowup;
 
-    protected readonly Service parent;
+    protected readonly IService parent;
 
     private PacketQueue packets = new(20);
 
@@ -18,14 +18,17 @@ public abstract class ServiceTask
 
     private CancellationTokenSource cancelSrc = new();
 
-    public ServiceTask(Service par, TaskType type, uint taskId, uint prio)
+    private readonly ServiceManager manager;
+
+    public ServiceTask(IService par, TaskType type, uint taskId, uint prio)
     {
         this.parent    = par;
-        this.serviceId = par.serviceId;
+        this.serviceId = par.GetPrimaryServiceId();
         this.type      = type;
         this.state     = TaskState.InProgress;
         this.taskId    = taskId;
         this.priority  = prio;
+        this.manager   = par.GetManager();
     }
     
     public void Cancel() => cancelSrc.Cancel();
@@ -49,11 +52,11 @@ public abstract class ServiceTask
 
     protected abstract Task Run();
 
-    protected ServiceManager GetManager() => parent.serviceManager;
+    protected ServiceManager GetManager() => parent.GetManager();
     
     private void InitPacketImpl(Packet pkt)
     {
-        pkt.serviceId = parent.serviceId;
+        pkt.serviceId = serviceId;
         pkt.taskId    = taskId;
         pkt.taskType  = type;
         pkt.Reset();
@@ -89,9 +92,9 @@ public abstract class ServiceTask
         return pkt;
     }
 
-    protected void SendPacket(Packet pkt) => parent.serviceManager.SendPacket(pkt);
+    protected void SendPacket(Packet pkt) => parent.GetManager().SendPacket(pkt);
     
-    protected Task SendPacketAsync(Packet pkt) => parent.serviceManager.SendPacketAsync(pkt);
+    protected Task SendPacketAsync(Packet pkt) => parent.GetManager().SendPacketAsync(pkt);
 
     public void SignalIncomingPacket(Packet pkt) => packets.Add(pkt);
 

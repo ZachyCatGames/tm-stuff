@@ -7,7 +7,7 @@ public class HostIOGetIOTypeTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOGetIOTypeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetIOType, taskId, 0)
+    public HostIOGetIOTypeTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetIOType, taskId, 0)
     {
         this.mgr = mgr;
     }

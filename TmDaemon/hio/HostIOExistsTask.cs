@@ -6,7 +6,7 @@ public class HostIOExistsTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOExistsTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.FileExists, taskId, 0)
+    public HostIOExistsTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.FileExists, taskId, 0)
     {
         this.mgr = mgr;
     }

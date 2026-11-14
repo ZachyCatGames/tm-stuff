@@ -8,7 +8,7 @@ public class HostIOReadTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOReadTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadFile, taskId, 0)
+    public HostIOReadTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.ReadFile, taskId, 0)
     {
         this.mgr = mgr;
     }

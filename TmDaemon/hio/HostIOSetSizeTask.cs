@@ -6,7 +6,7 @@ public class HostIOSetSizeTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOSetSizeTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetFileSize, taskId, 0)
+    public HostIOSetSizeTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.SetFileSize, taskId, 0)
     {
         this.mgr = mgr;
     }

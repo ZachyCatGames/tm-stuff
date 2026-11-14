@@ -6,7 +6,7 @@ public class HostIOFlushTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOFlushTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.FlushFile, taskId, 0)
+    public HostIOFlushTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.FlushFile, taskId, 0)
     {
         this.mgr = mgr;
     }

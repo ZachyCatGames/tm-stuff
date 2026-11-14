@@ -2,7 +2,7 @@
 
 namespace Test.hio;
 
-public class HostDirectoryIOService : Service {
+public class HostDirectoryIOService : ServiceBase {
     public const uint ServiceId = 0xB04489F2;
     
     readonly HostFilesystemManager hostfsMgr;

@@ -6,7 +6,7 @@ public class HostIOGetFileTimeStampTask : ServiceTask
 {
     HostFilesystemManager mgr;
     
-    public HostIOGetFileTimeStampTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetFileTimeStamp, taskId, 0)
+    public HostIOGetFileTimeStampTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetFileTimeStamp, taskId, 0)
     {
         this.mgr = mgr;
     }

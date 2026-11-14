@@ -6,7 +6,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
 {
     readonly HostFilesystemManager mgr;
     
-    public HostDirectoryIOOpenTask(Service parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenDirectory, taskId, 0)
+    public HostDirectoryIOOpenTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenDirectory, taskId, 0)
     {
         this.mgr = mgr;
     }
