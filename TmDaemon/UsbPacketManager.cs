@@ -133,6 +133,9 @@ public class UsbPacketManager : IPacketManager
         this.parent    = parent;
         managerService = new(serviceManager);
         
+        /* Register the manager service. */
+        serviceManager.RegisterService(managerService);
+        
         sendThread = new Thread(SendThread);
         recvThread = new Thread(RecvThread);
 
