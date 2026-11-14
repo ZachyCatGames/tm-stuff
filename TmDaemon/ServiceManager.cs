@@ -89,11 +89,9 @@ public class ServiceManager
 
     public void RegisterNewTask(ServiceTask task)
     {
+        taskList.AddTask(task);
         task.StartImpl();
-        RegisterTask(task);
     }
-    
-    public void RegisterTask(ServiceTask task) => taskList.AddTask(task);
 
     public async Task CancelAllTasksAsync()
     {
@@ -197,9 +195,8 @@ public class ServiceManager
                 {
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {
-                        taskList.AddTask(task);
+                        RegisterNewTask(task);
                         task.SignalIncomingPacket(pkt);
-                        task.StartImpl();
                     }
                     else
                     {

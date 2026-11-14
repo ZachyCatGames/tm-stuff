@@ -12,7 +12,7 @@ public abstract class ServiceBase : IService
         serviceManager = mgr;
     }
     
-    protected void RegisterTask(ServiceTask task) => serviceManager.RegisterTask(task);
+    protected void RegisterNewTask(ServiceTask task) => serviceManager.RegisterNewTask(task);
 
     public ServiceManager GetManager() => serviceManager;
     

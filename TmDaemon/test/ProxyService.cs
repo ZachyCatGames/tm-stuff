@@ -106,8 +106,7 @@ public class ProxyService : ServiceBase
             pkt.Print();
             
             ProxyTask task = new(this, pkt.taskType, pkt.taskId, 0);
-            serviceManager.RegisterTask(task);
-            task.StartImpl();
+            serviceManager.RegisterNewTask(task);
             await serviceManager.SendPacketAsync(pkt);
         }
     }
