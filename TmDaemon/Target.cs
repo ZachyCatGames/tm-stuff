@@ -27,8 +27,8 @@ public class Target : IDisposable, IAsyncDisposable
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
 
-    private Task disconnectMonitor;
-    private readonly SemaphoreSlim disconnectSignal = new(0);
+    private          Task                    disconnectMonitor;
+    private readonly SemaphoreSlim           disconnectSignal      = new(0);
     private readonly CancellationTokenSource disconnectTokenSource = new();
     
     public TargetInfo Info { get; private set; }

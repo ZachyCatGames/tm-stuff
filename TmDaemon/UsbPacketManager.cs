@@ -114,13 +114,11 @@ public class UsbPacketManager : IPacketManager
     private BeaconPacket? beaconPacket;
     
     private bool isConnected;
-    private bool isCommsDisabled;
-    private long recvDone, sendDone;
     
     private readonly CancellationTokenSource cancelSrc = new();
 
-    private bool abruptDisconnectHandled = false;
-    private readonly Lock abruptDisconnectLock = new();
+    private bool          abruptDisconnectHandled = false;
+    private readonly Lock abruptDisconnectLock    = new();
 
     private readonly ManagerService managerService;
 
@@ -141,9 +139,6 @@ public class UsbPacketManager : IPacketManager
 
         beaconPacket    = null;
         isConnected     = false;
-        isCommsDisabled = false;
-        recvDone        = 0;
-        sendDone        = 0;
         
         /* Start the send and receive threads. */
         sendThread.Start();
