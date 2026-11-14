@@ -93,9 +93,7 @@ public class UsbPacketManager : IPacketManager
     private readonly Thread recvThread;
 
     private readonly UsbTargetProvider parent;
-
-    private readonly PacketQueue packetQueue = new(20);
-
+    
     private readonly ServiceManager serviceManager;
 
     private readonly UsbInterface usbIf;
@@ -142,16 +140,6 @@ public class UsbPacketManager : IPacketManager
     {
         /* Dispose the USB Interface. */
         usbIf.Dispose();
-    }
-
-    public void SendPacket(Packet pkt)
-    {
-        packetQueue.Add(pkt);
-    }
-
-    public Task SendPacketAsync(Packet pkt)
-    {
-        return packetQueue.AddAsync(pkt);
     }
     
     public async Task<TargetInfo> GetTargetInfo()
@@ -337,7 +325,7 @@ public class UsbPacketManager : IPacketManager
             Packet pkt;
             try
             {
-                pkt = packetQueue.Take(cancelSrc.Token);
+                pkt = serviceManager.PopSendPacket();
             }
             catch(OperationCanceledException)
             {

@@ -8,9 +8,6 @@ namespace Test;
 
 public interface IPacketManager : IDisposable
 {
-    public void SendPacket(Packet pkt);
-    public Task SendPacketAsync(Packet pkt);
-
     public Task ConnectAsync();
     public Task ReconnectAsync();
     public Task DisconnectAsync();

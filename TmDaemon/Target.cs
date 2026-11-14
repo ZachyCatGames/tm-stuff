@@ -65,9 +65,6 @@ public class Target : IDisposable, IAsyncDisposable
         /* Setup client context vars. */
         currentContextId = 0;
         
-        /* Start the service manager. */
-        serviceManager.Init(packetManager);
-        
         /* Get initial info. */
         Info = await packetManager.GetTargetInfo();
         

@@ -22,8 +22,8 @@ public class ServiceManager
 
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
-
-    private          IPacketManager     packetMgr;
+    
+    private readonly Channel<Packet>    sendQueue;
     private readonly Thread             workThread;
     private readonly Channel<WorkerCmd> cmdQueue = Channel.CreateUnbounded<WorkerCmd>();
     //private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
@@ -70,13 +70,8 @@ public class ServiceManager
             freePacketsForRecv.Add(new Packet(freePacketsForRecv));
         }
         
+        /* Start the worker thread. */
         workThread = new(WorkThreadFunc);
-    }
-
-    public void Init(IPacketManager mgr)
-    {
-        initialized = true;
-        packetMgr = mgr;
         workThread.Start();
     }
     
@@ -89,8 +84,6 @@ public class ServiceManager
         workThread.Join();
     }
     
-    public IPacketManager GetPacketManager() => packetMgr;
-
     /* External service/task management. */
     public void RegisterService(Service srv) => services.Add(srv);
 
@@ -119,13 +112,14 @@ public class ServiceManager
     public Task<Packet> AllocSendPacketAsync() => freePacketsForSend.TakeAsync();
     
     /* These are for tasks to send replies or w/e */
-    public void SendPacket(Packet pkt) => packetMgr.SendPacket(pkt);
+    public void SendPacket(Packet pkt) => sendQueue.Writer.TryWrite(pkt);
     
-    public Task SendPacketAsync(Packet pkt) => packetMgr.SendPacketAsync(pkt);
+    public async Task SendPacketAsync(Packet pkt) => await sendQueue.Writer.WriteAsync(pkt);
     
-    /* This is for the packet manager. */
+    /* These are for the packet manager. */
     public void OnRecvPacket(Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
+    public Packet PopSendPacket() => sendQueue.Reader.ReadAsync().Result;
     
     private async void WorkThreadFunc()
     {
