@@ -15,7 +15,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
     
-    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto" x:Name="Root">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,5,*" x:Name="Root">
         <TextBlock Grid.Row="0" Grid.Column="0" Classes="h1" Text="Targets"/>
         
         <TableView Grid.Row="1"
@@ -35,10 +35,12 @@
             </ListBox.ContextMenu>
         </TableView>
         
-        <TextBlock Grid.Row="0" Grid.Column="1" Classes="h1" Text="HTCS Entries"/>
+        <GridSplitter Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" ResizeDirection="Columns"></GridSplitter>
+        
+        <TextBlock Grid.Row="0" Grid.Column="2" Classes="h1" Text="HTCS Entries"/>
         
         <TableView Grid.Row="1"
-                   Grid.Column="1"
+                   Grid.Column="2"
                    ItemsSource="{Binding TargetList.SelectedTarget.HtcsEntries}">
             <TableView.Columns>
                 <TableViewColumn Header="Port Name" Binding="{Binding PortName}"/>
