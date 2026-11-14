@@ -29,7 +29,7 @@ public class UsbInterface : IDisposable
 
     public void Dispose()
     {
-        device.Close();
+        //device.Close();
         device.Dispose();
     }
 
@@ -37,7 +37,6 @@ public class UsbInterface : IDisposable
 
     public void Cancel()
     {
-        using var l = mutex.EnterScope();
         canceled = true;
     }
 
@@ -55,13 +54,10 @@ public class UsbInterface : IDisposable
             {
                 return result;
             }
-
-            using (var scope = mutex.EnterScope())
+            
+            if (canceled)
             {
-                if (canceled)
-                {
-                    return result; 
-                }
+                return result; 
             }
         }
     }
@@ -75,13 +71,10 @@ public class UsbInterface : IDisposable
             {
                 return result;
             }
-
-            using (var scope = mutex.EnterScope())
+            
+            if (canceled)
             {
-                if (canceled)
-                {
-                    return result; 
-                }
+                return result; 
             }
         }
     }

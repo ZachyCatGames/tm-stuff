@@ -32,7 +32,7 @@ public class TargetServiceImpl : Test.TargetService.TargetServiceBase
             return new DisconnectTargetReply { Result = TargetResult.NotConnected };
         
         /* Disconnect the target. */
-        await target.DisconnectAsync();
+        await manager.DisconnectTargetAsync(target);
         
         return new DisconnectTargetReply
         {

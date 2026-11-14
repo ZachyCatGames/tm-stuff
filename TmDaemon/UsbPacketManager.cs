@@ -7,10 +7,87 @@ using LibUsbDotNet;
 
 public class UsbPacketManager : IPacketManager
 {
+    // connect + beacon reply
     private const UInt32 InitializeServiceId        = 0xcd5ed1b8;
+    // disconnect + no reply
     private const UInt32 FinalizeServiceId          = 0xf97fe6b9;
+    // beacon reply
     private const UInt32 QueryBeaconPacketServiceId = 0x3a8ddd94;
+    // send host info + no reply
     private const UInt32 SendHostInfoServiceId      = 0x4d4a6c24;
+
+    private class ManagerService : Service
+    {
+        public ManagerService(ServiceManager mgr) : base(0x0, mgr)
+        {
+            
+        }
+
+        public override ServiceTask? ProcessNewRequest(Packet pkt)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    
+    private class NormalTask : ServiceTask
+    {
+        private UInt32 serviceId;
+        
+        public NormalTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, Packet.TaskIdForMgr, 0)
+        {
+            this.serviceId = serviceId;
+        }
+
+        protected override async Task Run()
+        {
+            /* Setup the packet. */
+            Packet pkt = await AllocSendPacketAsync();
+            pkt.Reset();
+            pkt.serviceId = serviceId;
+            pkt.taskId = Packet.TaskIdForMgr;
+            pkt.isInitiate = false;
+            pkt.taskType = TaskType.Invalid;
+            pkt.Write((UInt32)0);
+            pkt.WriteHeader();
+            
+            /* Send the packet. */
+            await SendPacketAsync(pkt);
+        }
+    }
+
+    private class BeaconTask : ServiceTask
+    {
+        private UInt32 serviceId;
+        
+        public Packet BeaconPacket { get; private set; }
+        public BeaconTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, Packet.TaskIdForMgr, 0)
+        {
+            this.serviceId = serviceId;
+        }
+
+        protected override async Task Run()
+        {
+            /* Setup the packet. */
+            Packet pkt = await AllocSendPacketAsync();
+            pkt.Reset();
+            pkt.serviceId = serviceId;
+            pkt.taskId = Packet.TaskIdForMgr;
+            pkt.isInitiate = false;
+            pkt.taskType = TaskType.Invalid;
+            pkt.Write((UInt32)0);
+            pkt.WriteHeader();
+            
+            /* Send the packet. */
+            await SendPacketAsync(pkt);
+            
+            /* Wait for the reply. */
+            BeaconPacket = await WaitForPacket();
+            
+            Console.WriteLine("test");
+        }
+        
+        public void Dispose() => BeaconPacket.Release();
+    }
     
     private readonly Thread sendThread;
     private readonly Thread recvThread;
@@ -34,11 +111,16 @@ public class UsbPacketManager : IPacketManager
     private bool abruptDisconnectHandled = false;
     private readonly Lock abruptDisconnectLock = new();
 
+    private readonly ManagerService managerServiceStub;
+
+    private SemaphoreSlim cancelSem; 
+
     public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
         usbIf          = usb;
         this.parent    = parent;
+        managerServiceStub = new(serviceManager);
         
         sendThread = new Thread(SendThread);
         recvThread = new Thread(RecvThread);
@@ -48,14 +130,16 @@ public class UsbPacketManager : IPacketManager
         isCommsDisabled = false;
         recvDone        = 0;
         sendDone        = 0;
+        
+        /* Start the send and receive threads. */
+        sendThread.Start();
+        Console.WriteLine("Started USB send thread");
+        recvThread.Start();
+        Console.WriteLine("Started USB recv thread");
     }
 
     public void Dispose()
     {
-        /* Disconnect if we're connected. */
-        if (isConnected)
-            Disconnect();
-
         /* Dispose the USB Interface. */
         usbIf.Dispose();
     }
@@ -70,10 +154,10 @@ public class UsbPacketManager : IPacketManager
         return packetQueue.AddAsync(pkt);
     }
     
-    public TargetInfo GetTargetInfo()
+    public async Task<TargetInfo> GetTargetInfo()
     {
         /* Get the beacon packet. */
-        GetBeaconPacket(out BeaconPacket? pkt);
+        BeaconPacket? pkt = await GetBeaconPacket();
 
         /* Parse it. */
         string sn = pkt != null ? pkt.Value.SN : "Unknown";
@@ -86,48 +170,74 @@ public class UsbPacketManager : IPacketManager
         };
     }
 
-    public async Task Connect()
+    public async Task ConnectAsync()
+    {
+        /* Send a finalize packet to clear the console's task list. */
+        await SendNormalTaskImplAsync(FinalizeServiceId);
+        
+        /* Actually connect. */
+        await ReconnectAsync();
+    }
+
+    public async Task ReconnectAsync()
     {
         /* Do nothing if we're already connected. */
         if (isConnected)
             return;
         
         /* Send a connect packet. */
-        GetBeaconPacketImpl(InitializeServiceId);
-        
-        /* Start the send and receive threads. */
-        sendThread.Start();
-        Console.WriteLine("Started USB send thread");
-        recvThread.Start();
-        Console.WriteLine("Started USB recv thread");
+        await SendBeaconTaskImplAsync(InitializeServiceId);
         
         /* We're now connected. */
         isConnected = true;
     }
 
-    public void Disconnect()
+    public async Task DisconnectImplAsync(bool sendDcPkt)
     {
-        Debug.Assert(isConnected);
+        /* Block new initiate requests. */
+        serviceManager.InitiaiteLock = true;
         
+        /* Cancel all tasks. */
+        await serviceManager.CancelAllTasksAsync();
+        
+        /* Send the disconnect packet. */
+        if (sendDcPkt)
+        {
+            NormalTask task = new(FinalizeServiceId, managerServiceStub);
+            serviceManager.RegisterNewTask(task);
+            await task.WaitDoneAsync();
+        }
+
+        /* TODO: wait */
+
         /* Stop send and recv threads. */
-        StopThreads();
+        await StopThreadsAsync();
         
         /* Tell our parent that we're done. */
-        parent.NotifyDisconnect(this);
+        parent.NotifyClose(this);
     }
 
-    public void GetBeaconPacket(out BeaconPacket? beacon)
+    public async Task DisconnectAsync()
+    {
+        await DisconnectImplAsync(true);
+    }
+
+    public async Task CloseAsync()
+    {
+        await DisconnectImplAsync(false);
+    }
+
+    public async Task<BeaconPacket?> GetBeaconPacket()
     {
         /* Use cached packet if already cached. */
         if (beaconPacket != null)
         {
-            beacon = beaconPacket;
-            return;
+            return beaconPacket;
         }
 
         /* Send a query packet. */
-        GetBeaconPacketImpl(QueryBeaconPacketServiceId);
-        beacon = beaconPacket;
+        await SendBeaconTaskImplAsync(QueryBeaconPacketServiceId);
+        return beaconPacket;
     }
 
     public int GetUsbDeviceNumber()
@@ -135,33 +245,37 @@ public class UsbPacketManager : IPacketManager
         return usbIf.GetUsbDeviceNumber();
     }
 
-    public void GetBeaconPacketImpl(UInt32 serviceId)
+    public async Task SendNormalTaskImplAsync(UInt32 serviceId)
     {
         /* Query via get info cmd. */
-        Packet pkt = serviceManager.AllocRecvPacket();
-        pkt.Reset();
-        pkt.serviceId = serviceId;
-        pkt.taskId = 0;
-        pkt.isInitiate = true;
-        pkt.Write((UInt32)0);
-        pkt.WriteHeader();
-        SendPacketImpl(pkt);
+        var task = new NormalTask(serviceId, managerServiceStub);
+        serviceManager.RegisterNewTask(task);
         
-        /* Receive the beacon packet. */
-        RecvPacketImpl(ref pkt);
+        /* Wait for it to finish. */
+        await task.WaitDoneAsync();
+    }
+
+    public async Task SendBeaconTaskImplAsync(UInt32 serviceId)
+    {
+        /* Query via get info cmd. */
+        var task = new BeaconTask(serviceId, managerServiceStub);
+        serviceManager.RegisterNewTask(task);
         
+        /* Wait for it to finish. */
+        await task.WaitDoneAsync();
+
         /* Parse the beacon packet. */
-        string beaconStr = pkt.ReadString(0x1000);
+        string beaconStr = task.BeaconPacket.ReadString(0x300);
         if (beaconPacket == null)
         {
             beaconPacket = new BeaconPacket(beaconStr);
         }
         
         /* Release the packet. */
-        pkt.Release();
+        task.Dispose();
     }
 
-    private void NotifyAbruptDisconnect()
+    private void NotifyAbruptClose()
     {
         using var l = abruptDisconnectLock.EnterScope();
 
@@ -173,7 +287,7 @@ public class UsbPacketManager : IPacketManager
         abruptDisconnectHandled = true;
         
         /* Notify parent so it can do cleanup. */
-        parent.NotifyAbruptDisconnect(this);
+        parent.NotifyAbruptClose(this);
     }
     
     private Error RecvPacketImpl(ref Packet pkt)
@@ -196,16 +310,18 @@ public class UsbPacketManager : IPacketManager
         return usbIf.Write(buf, Packet.HeaderSize, pkt.dataSize, out int dataSize);
     }
 
-    void StopThreads()
+    private async Task StopThreadsAsync()
     {
+        /* Create the cancellation semaphore. */
+        cancelSem = new(0);
+        
         /* Cancel current transfers. */
         cancelSrc.Cancel();
         usbIf.Cancel();
         
         /* Wait for both threads to exit. */
-        /* TODO: This "should" probably use async semaphores or similar. */
-        while (Interlocked.Read(ref recvDone) == 0) { }
-        while (Interlocked.Read(ref sendDone) == 0) { }
+        await cancelSem.WaitAsync();
+        await cancelSem.WaitAsync();
         
         /* Join them. */
         recvThread.Join();
@@ -225,7 +341,7 @@ public class UsbPacketManager : IPacketManager
             }
             catch(OperationCanceledException)
             {
-                Interlocked.Exchange(ref sendDone, 1);
+                cancelSem.Release();
                 return;
             }
 
@@ -236,15 +352,15 @@ public class UsbPacketManager : IPacketManager
             Error err = SendPacketImpl(pkt);
             if (cancelSrc.Token.IsCancellationRequested)
             {
-                Interlocked.Exchange(ref sendDone, 1);
+                cancelSem.Release();
                 return;
             }
 
             /* Treat other errors as an abrupt disconnect. */
             if (err != Error.Success)
             {
-                Interlocked.Exchange(ref sendDone, 1);
-                NotifyAbruptDisconnect();
+                cancelSem.Release();
+                NotifyAbruptClose();
                 return;
             }
 
@@ -265,15 +381,15 @@ public class UsbPacketManager : IPacketManager
             Error err = RecvPacketImpl(ref pkt);
             if (cancelSrc.Token.IsCancellationRequested)
             {
-                Interlocked.Exchange(ref recvDone, 1);
+                cancelSem.Release();
                 return;
             }
             
             /* Treat other errors as an abrupt disconnect. */
             if (err != Error.Success)
             {
-                Interlocked.Exchange(ref recvDone, 1);
-                NotifyAbruptDisconnect();
+                cancelSem.Release();
+                NotifyAbruptClose();
                 return;
             }
 

@@ -1,6 +1,6 @@
 namespace Test;
 
-public class TargetList : List<Target>, IDisposable
+public class TargetList : List<Target>, IDisposable, IAsyncDisposable
 {
     public TargetList() {}
     
@@ -10,7 +10,17 @@ public class TargetList : List<Target>, IDisposable
     {
         foreach (var target in this)
         {
+            target.CloseAsync().Wait();
             target.Dispose();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var targ in this)
+        {
+            await targ.CloseAsync();
+            await targ.DisposeAsync();
         }
     }
 }

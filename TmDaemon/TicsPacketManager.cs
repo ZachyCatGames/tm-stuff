@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualBasic;
 
+
 public class TicsPacketManager : IPacketManager
 {
     readonly Thread sendThread;
@@ -52,24 +53,34 @@ public class TicsPacketManager : IPacketManager
         return packetQueue.AddAsync(pkt);
     }
 
-    public TargetInfo GetTargetInfo()
+    public async Task<TargetInfo> GetTargetInfo()
     {
         return new TargetInfo();
     }
 
-    public async Task Connect()
+    public async Task ConnectAsync()
     {
-        
+        throw new NotImplementedException();
     }
 
-    public void Disconnect()
+    public Task ReconnectAsync()
     {
-        
+        throw new NotImplementedException();
     }
 
-    public void GetBeaconPacket(out BeaconPacket? beacon)
+    public async Task DisconnectAsync()
     {
-        beacon = new BeaconPacket("");
+        throw new NotImplementedException();
+    }
+
+    public async Task CloseAsync()
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<BeaconPacket?> GetBeaconPacket()
+    {
+        return new BeaconPacket("");
     }
 
     public void Start()

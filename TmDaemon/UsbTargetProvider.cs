@@ -29,15 +29,14 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         context.Dispose();
     }
     
-    Target? CreateTargetUnsafe(UsbDevice device, out bool isNew)
+    private async Task<(Target?, bool)> CreateTargetAsyncUnsafe(UsbDevice device)
     {
         int id = device.Address | (device.BusNumber << 8);
         
         /* Check if we already have a target for this device. */
         if (connectedTargets.ContainsKey(id))
         {
-            isNew = false;
-            return connectedTargets[id];
+            return (connectedTargets[id], false);
         }
         
         /* Open the device. */
@@ -58,9 +57,11 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         var usbif      = new UsbInterface(device);
         var pktMgr     = new UsbPacketManager(usbif, serviceMgr, this);
         var targ       = new Target(parent, serviceMgr, pktMgr);
+
+        /* Initialize target. */
+        await targ.InitializeAsync();
         
-        isNew = true;
-        return targ;
+        return (targ, true);
     }
     
     public async Task<TargetList> QueryTargetsImplUnsafeAsync(Func<Target, bool> pred)
@@ -71,13 +72,18 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             foreach (var dev in sdkDevices)
             {
-                var targ = CreateTargetUnsafe((UsbDevice)(dev.Clone()), out bool isNew);
+                var (targ, isNew) = await CreateTargetAsyncUnsafe((UsbDevice)(dev.Clone()));
                 if (isNew)
                 {
                     if (pred(targ))
+                    {
                         list.Add(targ);
+                    }
                     else
-                        targ.Dispose();
+                    {
+                        await targ.CloseAsync();
+                        await targ.DisposeAsync();
+                    }
                 } 
             }
         }
@@ -93,11 +99,14 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     public async Task<int> QueryDisconnectedCountAsync()
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
-        
-        using (var targets = await QueryTargetsImplUnsafeAsync())
+
+        int count = 0;
+        await using (var targets = await QueryTargetsImplUnsafeAsync())
         {
-            return targets.Count;
+            count = targets.Count;
         }
+
+        return count;
     }
 
     public async Task<List<TargetInfo>> QueryDisconnectedInfosAsync()
@@ -105,9 +114,9 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
         
         var list = new List<TargetInfo>();
-        using (var targets = await QueryTargetsImplUnsafeAsync())
+        await using (var targets = await QueryTargetsImplUnsafeAsync())
         {
-            targets.ForEach(targ => list.Add(targ.Info));
+            targets.ForEach(t => list.Add(t.Info));
         }
 
         return list;
@@ -145,7 +154,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             if (info.SerialNumber == serialNumber)
             {
                 /* Connect to it. */
-                targ.Connect();
+                await targ.ConnectAsync();
             
                 /* Add it to the connected list. */
                 int id = ((UsbPacketManager)targ.GetPacketManager()).GetUsbDeviceNumber();
@@ -153,32 +162,36 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
                 /* Dispose of the last selected target. */
                 if (selected != null)
+                {
+                    await selected.CloseAsync();
                     selected.Dispose();
+                }
+
                 selected = targ;
             }
             else
             {
-                targ.Dispose();
+                await targ.DisposeAsync();
             }
         }
         return selected;
     }
 
-    public void NotifyDisconnect(UsbPacketManager child)
+    public void NotifyClose(UsbPacketManager child)
     {
-        using var l = AsyncLockHolder.Enter(asyncLock);
+        //using var l = AsyncLockHolder.Enter(asyncLock);
         
         /* Assert this? */
         int id = child.GetUsbDeviceNumber();
         connectedTargets.Remove(id);
     }
 
-    public void NotifyAbruptDisconnect(UsbPacketManager child)
+    public void NotifyAbruptClose(UsbPacketManager child)
     {
-        using var l = AsyncLockHolder.Enter(asyncLock);
+        //using var l = AsyncLockHolder.Enter(asyncLock);
 
         /* Notify the parent target. */
         int id = child.GetUsbDeviceNumber();
-        connectedTargets[id].NotifyAbruptDisconnect();
+        connectedTargets[id].NotifyAbruptClose();
     }
 }

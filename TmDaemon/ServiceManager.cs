@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+
 namespace Test;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -11,8 +13,9 @@ public class ServiceManager
 
     private bool initialized = false;
     
-    private bool            isDone = false;
-    private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
+    private bool          isDone = false;
+    private SemaphoreSlim doneEv = new(0);
+    //private EventWaitHandle doneEv = new(false, EventResetMode.ManualReset);
 
     private readonly List<Service> services = new();
     private readonly TaskList      taskList = new();
@@ -20,13 +23,40 @@ public class ServiceManager
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
 
-    private          IPacketManager packetMgr;
-    private readonly Thread         workThread;
-    private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
+    private          IPacketManager     packetMgr;
+    private readonly Thread             workThread;
+    private readonly Channel<WorkerCmd> cmdQueue = Channel.CreateUnbounded<WorkerCmd>();
+    //private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
+    
+    private readonly SemaphoreSlim cancelTasksSem = new(0);
 
-    private readonly Lock packetProcessMutex = new();
+    public bool InitiaiteLock { get; set; }
+    
+    private enum CmdType
+    {
+        NewPacket,
+        CancelAllTasks,
+        FlushTasks,
+        Close,
+        Tick
+    }
 
-    private readonly CancellationTokenSource exitTokenSource = new();
+    private class WorkerCmd
+    {
+        public CmdType type;
+        public Packet? pkt;
+
+        public WorkerCmd(CmdType type, Packet pkt)
+        {
+            this.type = type;
+            this.pkt = pkt;
+        }
+
+        public WorkerCmd(CmdType type)
+        {
+            this.type = type;
+        }
+    }
     
     public ServiceManager()
     {
@@ -49,30 +79,37 @@ public class ServiceManager
         packetMgr = mgr;
         workThread.Start();
     }
-
+    
     public void Finalize()
     {
-        /* Set done flag. */
-        isDone = true;
-        
-        /* Cancel pending wait in worker. */
-        exitTokenSource.Cancel();
-        
-        /* Wait for the worker to finish. */
-        doneEv.WaitOne();
+        /* Notify the worker that we're done. */
+        cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.Close));
+
+        /* Wait for the thread to finish. */
+        workThread.Join();
     }
     
-    // for use by packet mgr.
-    public void OnRecvPacket(Packet pkt) => packetQueue.Add(pkt);
-
     public IPacketManager GetPacketManager() => packetMgr;
 
-    public void SendPacket(Packet pkt) => packetMgr.SendPacket(pkt);
-    
-    public Task SendPacketAsync(Packet pkt) => packetMgr.SendPacketAsync(pkt);
-
+    /* External service/task management. */
     public void RegisterService(Service srv) => services.Add(srv);
+
+    public void RegisterNewTask(ServiceTask task)
+    {
+        task.StartImpl();
+        RegisterTask(task);
+    }
     
+    public void RegisterTask(ServiceTask task) => taskList.AddTask(task);
+
+    public async Task CancelAllTasksAsync()
+    {
+        //cancelTasksSem = new(0);
+        cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.CancelAllTasks));
+        await cancelTasksSem.WaitAsync();
+    }
+    
+    /* Packet allocators. */
     public Packet AllocRecvPacket() => freePacketsForRecv.Take();
 
     public Task<Packet> AllocRecvPacketAsync() => freePacketsForRecv.TakeAsync();
@@ -80,10 +117,56 @@ public class ServiceManager
     public Packet AllocSendPacket() => freePacketsForSend.Take();
 
     public Task<Packet> AllocSendPacketAsync() => freePacketsForSend.TakeAsync();
+    
+    /* These are for tasks to send replies or w/e */
+    public void SendPacket(Packet pkt) => packetMgr.SendPacket(pkt);
+    
+    public Task SendPacketAsync(Packet pkt) => packetMgr.SendPacketAsync(pkt);
+    
+    /* This is for the packet manager. */
+    public void OnRecvPacket(Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
-    public void RegisterTask(ServiceTask task) => taskList.AddTask(task);
+    
+    private async void WorkThreadFunc()
+    {
+        bool done = false;
+        while (!done)
+        {
+            /* Wait for a new packet. */
+            WorkerCmd workerCmd;
+            try
+            {
+                workerCmd = await cmdQueue.Reader.ReadAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Assert(isDone);
+                break;
+            }
+            
+            /* Remove any finished tasks. */
+            taskList.RemoveIf((task) => task.IsDone());
 
-    public void CancelAllTasks()
+            switch (workerCmd.type)
+            {
+                case CmdType.NewPacket:
+                    Debug.Assert(workerCmd.pkt != null);
+                    ProcessRecvPacketImpl(workerCmd.pkt);
+                    break;
+                case CmdType.CancelAllTasks:
+                    CancelAllTasksImpl();
+                    cancelTasksSem.Release();
+                    break;
+                case CmdType.Close:
+                    done = true;
+                    break;
+                case CmdType.Tick:
+                    break;
+            }
+        }
+    }
+    
+    private void CancelAllTasksImpl()
     {
         taskList.ForEach((task) =>
         {
@@ -100,39 +183,6 @@ public class ServiceManager
                 /* ... */
             }
         });
-    }
-    
-    private async void WorkThreadFunc()
-    {
-        while (true)
-        {
-            /* Wait for a new packet. */
-            Packet pkt;
-            try
-            {
-                pkt = await packetQueue.TakeAsync(exitTokenSource.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                Debug.Assert(isDone);
-                break;
-            }
-
-            /* Call impl on it. */
-            using (var scope = packetProcessMutex.EnterScope())
-            {
-                ProcessRecvPacketImpl(pkt);
-            }
-            
-            /* Remove any finished taskList. */
-            taskList.RemoveIf((task) => task.IsDone());
-        }
-        
-        /* Cancel all current tasks. */
-        CancelAllTasks();
-        
-        /* Signal that we're done. */
-        doneEv.Set();
     }
 
     // called by PacketManager recv thread
@@ -170,6 +220,13 @@ public class ServiceManager
         }
         else
         {
+            /* If the initiate lock is active and this isn't a manager packet, drop it. */
+            if (InitiaiteLock && (pkt.taskId & Packet.TaskIdOriginBitsMask) == Packet.TaskIdForMgr)
+            {
+                pkt.Release();
+                return;
+            }
+            
             /* Find the target service. */
             if (taskList.FindByTaskById(pkt.taskId) is ServiceTask task)
             {

@@ -5,7 +5,7 @@ using Test.env;
 
 namespace Test;
 
-public class Target : IDisposable
+public class Target : IDisposable, IAsyncDisposable
 {
     private readonly ITargetManager parent;
 
@@ -27,7 +27,7 @@ public class Target : IDisposable
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
 
-    private readonly Task disconnectMonitor;
+    private Task disconnectMonitor;
     private readonly SemaphoreSlim disconnectSignal = new(0);
     private readonly CancellationTokenSource disconnectTokenSource = new();
     
@@ -51,18 +51,25 @@ public class Target : IDisposable
         hioDirService = new HostDirectoryIOService(serviceManager, hostfsManager);
         envService    = new HostEnvService(serviceManager);
         
+        clientContexts   = new();
+    }
+
+    public async Task InitializeAsync()
+    {
         /* Register services. */
         serviceManager.RegisterService(htcsService);
         serviceManager.RegisterService(hioService);
         serviceManager.RegisterService(hioDirService);
         serviceManager.RegisterService(envService);
         
-        /* Get initial info. */
-        Info = packetManager.GetTargetInfo();
-        
         /* Setup client context vars. */
         currentContextId = 0;
-        clientContexts   = new();
+        
+        /* Start the service manager. */
+        serviceManager.Init(packetManager);
+        
+        /* Get initial info. */
+        Info = await packetManager.GetTargetInfo();
         
         /* Run abrupt disconnect monitor. */
         disconnectMonitor = DisconnectMonitor();
@@ -86,6 +93,13 @@ public class Target : IDisposable
 
     public void Dispose()
     {
+        //CloseAsync().Wait();
+        packetManager.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        //await CloseAsync();
         packetManager.Dispose();
     }
 
@@ -93,13 +107,10 @@ public class Target : IDisposable
 
     public Task<AsyncLockHolder> AcquireLockAsync() => AsyncLockHolder.EnterAsync(asyncLock);
 
-    public void Connect()
+    public async Task ConnectAsync()
     {
-        /* Start the service manager. */
-        serviceManager.Init(packetManager);
-        
         /* Start the packet manager properly. */
-        packetManager.Connect();
+        await packetManager.ConnectAsync();
         
         /* Update our status to connected. */
         Info.Status = TargetStatus.Connected;
@@ -113,6 +124,9 @@ public class Target : IDisposable
         /* Do nothing if already disconnected. */
         if (Info.Status == TargetStatus.Disconnected)
             return;
+        
+        /* Tear down the packet manager. */
+        packetManager.DisconnectAsync().Wait();
         
         /* Finalize service manager. */
         serviceManager.Finalize();
@@ -128,12 +142,6 @@ public class Target : IDisposable
         
         /* Finalize the htcs socket manager. */
         htcsManager.Dispose();
-        
-        /* Tear down the rest of packet manager. */
-        packetManager.Dispose();
-        
-        /* Notify manager. */
-        parent.NotifyOnDisconnect(this);
         
         /* Update our status to disconnected. */
         Info.Status = TargetStatus.Disconnected;
@@ -172,6 +180,33 @@ public class Target : IDisposable
     {
         using var l = await AcquireLockAsync();
         await DisconnectUnsafeAsync();
+    }
+    
+    private async Task CloseAsyncUnsafe()
+    {
+        /* Cancel the abrupt disconnect monitor. */
+        disconnectTokenSource.Cancel();
+        
+        /* Call close on the packet manager. */
+        await packetManager.CloseAsync();
+
+        /* Finalize service manager. */
+        serviceManager.Finalize();
+        
+        /* Finalize the file manager. */
+        hostfsManager.Dispose();
+        
+        /* Finalize the htcs socket manager. */
+        htcsManager.Dispose();
+        
+        /* Tear down the rest of packet manager. */
+        packetManager.Dispose();
+    }
+
+    public async Task CloseAsync()
+    {
+        using var l = await AcquireLockAsync();
+        await CloseAsyncUnsafe();
     }
 
     public async Task<int> InitializeClientContext()
@@ -246,5 +281,5 @@ public class Target : IDisposable
         return packetManager;
     }
     
-    public void NotifyAbruptDisconnect() => disconnectSignal.Release();
+    public void NotifyAbruptClose() => disconnectSignal.Release();
 }

@@ -44,6 +44,8 @@ public abstract class ServiceTask
     public bool IsDone() => task.IsCompleted || task.IsCanceled;
 
     public void WaitDone() => task.Wait();
+    
+    public async Task WaitDoneAsync() => await task;
 
     protected abstract Task Run();
 

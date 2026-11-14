@@ -11,11 +11,13 @@ public interface IPacketManager : IDisposable
     public void SendPacket(Packet pkt);
     public Task SendPacketAsync(Packet pkt);
 
-    public Task Connect();
-    public void Disconnect();
+    public Task ConnectAsync();
+    public Task ReconnectAsync();
+    public Task DisconnectAsync();
+    public Task CloseAsync();
 
-    public void GetBeaconPacket(out BeaconPacket? beacon);
+    public Task<BeaconPacket?> GetBeaconPacket();
 
     /* Target info comes from transport-specific beacon packets, so this lives here. */
-    public TargetInfo GetTargetInfo();
+    public Task<TargetInfo> GetTargetInfo();
 }

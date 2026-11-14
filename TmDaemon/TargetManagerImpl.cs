@@ -71,11 +71,17 @@ public class TargetManagerImpl : ITargetManager
         int all = 0;
         if (type == QueryType.All || type == QueryType.Connected)
         {
-            providers.ForEach(async (provider) => all += await provider.QueryConnectedCountAsync());
+            foreach (var p in providers)
+            {
+                all += await p.QueryConnectedCountAsync();
+            }
         }
         if (type == QueryType.All || type == QueryType.Disconnected)
         {
-            providers.ForEach(async (provider) => all += await provider.QueryDisconnectedCountAsync());
+            foreach (var p in providers)
+            {
+                all += await p.QueryDisconnectedCountAsync();
+            }
         }
         return all;
     }
@@ -141,6 +147,23 @@ public class TargetManagerImpl : ITargetManager
         return null;
     }
 
+    public async Task DisconnectTargetAsync(Target target)
+    {
+        /* Call disconnect. */
+        await target.DisconnectAsync();
+        
+        /* Remove the target from our dict. */
+        /* Do nothing if it's not an active conn. */
+        if (!targets.Remove(target.Info.SerialNumber))
+            return;
+        
+        /* Send a disconnect event to all listeners. */
+        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(target.Info, TargetEventType.Disconnected)));
+        
+        /* Dispose the target. */
+        target.Dispose();
+    }
+
     public async Task<Target?> GetTargetAsync(string serialNumber)
     {
         if (targets.TryGetValue(serialNumber, out var outTarg))
@@ -150,30 +173,20 @@ public class TargetManagerImpl : ITargetManager
 
         return null;
     }
-
-    public void NotifyOnDisconnect(Target targ)
-    {
-        string sn = targ.Info.SerialNumber;
-        Debug.Assert(targets.ContainsKey(sn));
-        
-        /* Remove the target from our dict. */
-        targets.Remove(sn);
-        
-        /* Send a disconnect event to all listeners. */
-        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(targ.Info, TargetEventType.Disconnected)));
-    }
-
+    
     private async Task<List<TargetInfo>> QueryTargetInfosImpl(QueryType type)
     {
         List<TargetInfo> infos = new List<TargetInfo>();
         
         if (type == QueryType.All || type == QueryType.Connected)
         {
-            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryConnectedInfosAsync()));
+            foreach (var p in providers)
+                infos.AddRange(await p.QueryConnectedInfosAsync());
         }
         if (type == QueryType.All || type == QueryType.Disconnected)
         {
-            providers.ForEach(async (provider) => infos.AddRange(await provider.QueryDisconnectedInfosAsync()));
+            foreach (var p in providers)
+                infos.AddRange(await p.QueryDisconnectedInfosAsync());
         }
 
         return infos;

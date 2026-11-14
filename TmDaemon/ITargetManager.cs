@@ -11,8 +11,6 @@ public interface ITargetManager
     public Task<(TargetResult, TargetEvent?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken);
 
     public Task<TargetInfo?> ConnectTargetAsync(string serialNumber);
+    public Task DisconnectTargetAsync(Target target);
     public Task<Target?> GetTargetAsync(string serialNumber);
-
-    /* eh, should these really be here? */
-    public void NotifyOnDisconnect(Target targ);
 }

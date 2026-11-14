@@ -2,6 +2,7 @@ namespace Test;
 
 public enum TaskType : ushort
 {
+    Invalid                 = 0x00,
     OpenFile                = 0x01,
     GetFileSize             = 0x02,
     SetFileSize             = 0x03,
