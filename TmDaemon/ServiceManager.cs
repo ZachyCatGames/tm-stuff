@@ -110,9 +110,17 @@ public class ServiceManager
     public Task<Packet> AllocSendPacketAsync() => freePacketsForSend.TakeAsync();
     
     /* These are for tasks to send replies or w/e */
-    public void SendPacket(Packet pkt) => sendQueue.Writer.TryWrite(pkt);
-    
-    public async Task SendPacketAsync(Packet pkt) => await sendQueue.Writer.WriteAsync(pkt);
+    public void SendPacket(Packet pkt)
+    {
+        pkt.WriteHeader();
+        sendQueue.Writer.TryWrite(pkt);
+    }
+
+    public async Task SendPacketAsync(Packet pkt)
+    {
+        pkt.WriteHeader();
+        await sendQueue.Writer.WriteAsync(pkt);
+    }
     
     /* These are for the packet manager. */
     public void OnRecvPacket(Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
