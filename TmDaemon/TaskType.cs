@@ -39,6 +39,8 @@ public enum TaskType : ushort
     Send                    = 0x21,
     Shutdown                = 0x22,
     Fcntl                   = 0x23,
+    
+    Debug                   = 0x26,
 
     GetVar                  = 0x29,
 
