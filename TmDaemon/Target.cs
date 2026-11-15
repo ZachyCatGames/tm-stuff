@@ -13,6 +13,8 @@ public class Target : IDisposable, IAsyncDisposable
     
     private readonly ServiceManager serviceManager;
     private readonly IPacketManager packetManager;
+    
+    private readonly HostTaskIdAllocator taskIdAlloc = new ();
 
     private readonly HostFilesystemManager hostfsManager;
 

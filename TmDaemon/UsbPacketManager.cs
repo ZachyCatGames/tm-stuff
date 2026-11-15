@@ -46,7 +46,7 @@ public class UsbPacketManager : IPacketManager
     {
         private UInt32 serviceId;
         
-        public NormalTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, Packet.TaskIdForMgr, 0)
+        public NormalTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
         {
             this.serviceId = serviceId;
         }
@@ -57,7 +57,7 @@ public class UsbPacketManager : IPacketManager
             Packet pkt = await AllocSendPacketAsync();
             pkt.Reset();
             pkt.serviceId = serviceId;
-            pkt.taskId = Packet.TaskIdForMgr;
+            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
             pkt.Write((UInt32)0);
@@ -73,7 +73,7 @@ public class UsbPacketManager : IPacketManager
         private UInt32 serviceId;
         
         public Packet BeaconPacket { get; private set; }
-        public BeaconTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, Packet.TaskIdForMgr, 0)
+        public BeaconTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
         {
             this.serviceId = serviceId;
         }
@@ -84,7 +84,7 @@ public class UsbPacketManager : IPacketManager
             Packet pkt = await AllocSendPacketAsync();
             pkt.Reset();
             pkt.serviceId = serviceId;
-            pkt.taskId = Packet.TaskIdForMgr;
+            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
             pkt.Write((UInt32)0);
@@ -171,8 +171,8 @@ public class UsbPacketManager : IPacketManager
 
     public async Task ConnectAsync()
     {
-        /* Send a finalize packet to clear the console's task list. */
-        await SendNormalTaskImplAsync(FinalizeServiceId);
+        /* Send QueryInfo. */
+        await SendBeaconTaskImplAsync(QueryBeaconPacketServiceId);
         
         /* Actually connect. */
         await ReconnectAsync();
@@ -315,7 +315,7 @@ public class UsbPacketManager : IPacketManager
         cancelSem = new(0);
         
         /* Cancel current transfers. */
-        cancelSrc.Cancel();
+        await cancelSrc.CancelAsync();
         usbIf.Cancel();
         
         /* Wait for both threads to exit. */
@@ -336,9 +336,9 @@ public class UsbPacketManager : IPacketManager
             Packet pkt;
             try
             {
-                pkt = serviceManager.PopSendPacket();
+                pkt = serviceManager.PopSendPacketAsync(cancelSrc.Token).Result;
             }
-            catch(OperationCanceledException)
+            catch(AggregateException)
             {
                 cancelSem.Release();
                 return;

@@ -23,7 +23,7 @@ public class ServiceManager
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
     
-    private readonly Channel<Packet>    sendQueue;
+    private readonly Channel<Packet>    sendQueue = Channel.CreateUnbounded<Packet>();
     private readonly Thread             workThread;
     private readonly Channel<WorkerCmd> cmdQueue = Channel.CreateUnbounded<WorkerCmd>();
     //private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
@@ -117,7 +117,7 @@ public class ServiceManager
     /* These are for the packet manager. */
     public void OnRecvPacket(Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
-    public Packet PopSendPacket() => sendQueue.Reader.ReadAsync().Result;
+    public async Task<Packet> PopSendPacketAsync(CancellationToken ct) => await sendQueue.Reader.ReadAsync(ct);
     
     private async void WorkThreadFunc()
     {
@@ -212,7 +212,7 @@ public class ServiceManager
         else
         {
             /* If the initiate lock is active and this isn't a manager packet, drop it. */
-            if (InitiaiteLock && (pkt.taskId & Packet.TaskIdOriginBitsMask) == Packet.TaskIdForMgr)
+            if (InitiaiteLock && (pkt.taskId & HostTaskIdAllocator.TaskIdOriginBitsMask) == HostTaskIdAllocator.TaskIdForMgr)
             {
                 pkt.Release();
                 return;

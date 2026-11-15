@@ -9,12 +9,6 @@ public class Packet
     public const int DataMaxSize   = 0xE000;
     public const int PacketMaxSize = HeaderSize + DataMaxSize;
 
-    public const uint TaskIdOriginBitsMask = 0xFFFF0000;
-    public const int TaskIdOriginBitsShift = 16;
-    public const uint TaskIdForDevice = 0x0u    << TaskIdOriginBitsShift;
-    public const uint TaskIdForHost   = 0x1u    << TaskIdOriginBitsShift;
-    public const uint TaskIdForMgr    = 0xFFFFu << TaskIdOriginBitsShift;
-
     private readonly PacketQueue sourceQueue;
 
     private readonly byte[]             buffer;
