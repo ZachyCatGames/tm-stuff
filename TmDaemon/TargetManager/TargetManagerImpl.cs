@@ -31,17 +31,20 @@ public class TargetManagerImpl : ITargetManager
         providers.Add(new UsbTargetProvider(this));
     }
 
-    public async Task<int> InitializeClientContext()
+    public async Task<int> InitializeClientContext(UInt64 flags)
     {
         /* Allocate a context id. */
         int contextId = Interlocked.Increment(ref currentContextId);
         
         /* Create a new client context. */
-        var ctx = new TargetManagerClientContext();
+        var ctx = new TargetManagerClientContext(flags);
         
-        /* Register context callback(s). */
-        targetEvCallbacks.Add(ctx.TargetEventCallback);
-        
+        /* Register event callback if needed. */
+        if ((flags & ManagerContextFlags.TargetEvent) != 0)
+        {
+            targetEvCallbacks.Add(ctx.TargetEventContext.EventCallback);
+        }
+
         /* Register the client context. */
         clientContexts.Add(contextId, ctx);
 
@@ -57,8 +60,11 @@ public class TargetManagerImpl : ITargetManager
         /* Release the contextId. */
         clientContexts.Remove(contextId);
         
-        /* Unregister our callback. */
-        targetEvCallbacks.Remove(ctx.TargetEventCallback);
+        /* Unregister event callback if needed. */
+        if ((ctx.Flags & ManagerContextFlags.TargetEvent) != 0)
+        {
+            targetEvCallbacks.Remove(ctx.TargetEventContext.EventCallback);
+        }
         
         /* Cancel any push/pop operations. */
         ctx.CancelPop();
@@ -113,11 +119,17 @@ public class TargetManagerImpl : ITargetManager
         if (!clientContexts.TryGetValue(contextId, out var ctx))
             return (TargetResult.InvalidContextId, null);
         
+        /* This context must support target events. */
+        if ((ctx.Flags & ManagerContextFlags.TargetEvent) == 0)
+        {
+            return (TargetResult.CtxOpNotEnabled, null);
+        }
+        
         /* Wait for a target update. */
         TargetEvent ev;
         try
         {
-            ev = await ctx.PopTargetEvent(cancelToken);
+            ev = await ctx.TargetEventContext.PopTargetEvent(cancelToken);
         }
         catch (OperationCanceledException)
         {

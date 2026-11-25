@@ -14,7 +14,7 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
 
     public override async Task<InitManagerClientContextReply> InitializeUserContext(InitManagerClientContextRequest request, ServerCallContext context)
     {
-        int contextId = await manager.InitializeClientContext();
+        int contextId = await manager.InitializeClientContext(request.Flags);
         if (contextId < 0)
         {
             /* TODO: What result should this be? */

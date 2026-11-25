@@ -1,6 +1,6 @@
 namespace Test.Target;
 
-public enum TargetContextFlags
+public class TargetContextFlags
 {
-    HTCS = 1,
+    public const UInt64 HTCS = 1;
 }

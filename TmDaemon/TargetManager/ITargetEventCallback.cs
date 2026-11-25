@@ -1,4 +1,6 @@
-namespace Test.Target;
+using Test.Target;
+
+namespace Test.TargetManager;
 
 public interface ITargetEventCallback
 {

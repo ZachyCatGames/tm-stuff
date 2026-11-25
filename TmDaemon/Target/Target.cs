@@ -224,7 +224,7 @@ public class Target : IDisposable, IAsyncDisposable
         var ctx = new TargetClientContext(flags);
         
         /* Register HTCS callback. */
-        if ((flags & (UInt64)TargetContextFlags.HTCS) != 0)
+        if ((flags & TargetContextFlags.HTCS) != 0)
         {
             await htcsManager.RegisterEventCallbackAsync(ctx.HtcsContext.PortEventCallback);
         }
@@ -247,7 +247,7 @@ public class Target : IDisposable, IAsyncDisposable
             clientContexts.Remove(contextId);
         
         /* Unregister our callback. */
-        if ((ctx.Flags & (UInt64)TargetContextFlags.HTCS) != 0)
+        if ((ctx.Flags & TargetContextFlags.HTCS) != 0)
         {
             await htcsManager.UnregisterEventCallbackAsync(ctx.HtcsContext.PortEventCallback);
         }
@@ -275,7 +275,7 @@ public class Target : IDisposable, IAsyncDisposable
         }
         
         /* This context must have HTCS events enabled. */
-        if ((ctx.Flags & (UInt64)TargetContextFlags.HTCS) == 0)
+        if ((ctx.Flags & TargetContextFlags.HTCS) == 0)
         {
             return (TargetResult.CtxOpNotEnabled, null);
         }

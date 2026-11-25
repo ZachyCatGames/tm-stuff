@@ -4,7 +4,7 @@ namespace Test.TargetManager;
 
 public interface ITargetManager
 {
-    public Task<int> InitializeClientContext();
+    public Task<int> InitializeClientContext(UInt64 flags);
     public Task<TargetResult> FinalizeClientContext(int contextId);
     
     public Task<int> QueryTargetCountAsync(QueryType type);

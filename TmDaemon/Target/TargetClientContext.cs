@@ -5,13 +5,13 @@ namespace Test.Target;
 
 public class TargetClientContext
 {
-    public class Htcs
+    public class HtcsManager
     {
         private class PortCallbackImpl : IPortEventCallback
         {
-            private readonly Htcs parent;
+            private readonly HtcsManager parent;
         
-            public PortCallbackImpl(Htcs ctx)
+            public PortCallbackImpl(HtcsManager ctx)
             {
                 parent = ctx;
             }
@@ -23,7 +23,7 @@ public class TargetClientContext
         private readonly CancellationToken  cancelToken;
         private readonly Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();
         
-        public Htcs(CancellationToken cancelToken)
+        public HtcsManager(CancellationToken cancelToken)
         {
             this.cancelToken  = cancelToken;
             this.portCallback = new PortCallbackImpl(this);
@@ -44,7 +44,7 @@ public class TargetClientContext
     
     private readonly CancellationTokenSource cancelToken;
 
-    public Htcs? HtcsContext { get; init; }
+    public HtcsManager? HtcsContext { get; init; }
 
     public TargetClientContext(UInt64 flags)
     {
@@ -53,7 +53,7 @@ public class TargetClientContext
         /* Setup HTCS context if required. */
         if ((Flags & (UInt64)TargetContextFlags.HTCS) != 0)
         {
-            HtcsContext = new Htcs(cancelToken.Token);
+            HtcsContext = new HtcsManager(cancelToken.Token);
         }
         
     }
