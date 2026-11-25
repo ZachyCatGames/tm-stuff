@@ -1,3 +1,5 @@
+using LibUsbDotNet;
+using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
 using Test.Services;
 using Test.Target;
@@ -17,6 +19,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private UsbContext context;
 
+    private readonly Dictionary<LocationId, TargetInfo> discoveryInfos = new();
 
     public UsbTargetProvider(ITargetManager parent)
     {
@@ -177,6 +180,58 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             }
         }
         return selected;
+    }
+
+    public void BeginTargetDiscovery()
+    {
+        if (context.IsUsingHotplug)
+            return;
+
+        /* Register an event listener. */
+        context.DeviceEvent += HotplugCallback;
+        
+        /* Begin usb hotplug. */
+        context.RegisterHotPlug();
+    }
+
+    public void EndTargetDiscovery()
+    {
+        /* Stop hotplug. */
+        context.UnregisterHotPlug();
+        
+        /* Remove ourself as an event listen. */
+        context.DeviceEvent -= HotplugCallback;
+        
+        /* Clear discovery dict. */
+        discoveryInfos.Clear();
+    }
+
+    private void HotplugCallback(object? sender, DeviceEventArgs e)
+    {
+        if (e is DeviceArrivedEventArgs)
+        {
+            UsbDevice dev = (e as DeviceArrivedEventArgs).Device;
+            
+            /* Grab device info. */
+            var (targ, isNew) = CreateTargetAsyncUnsafe(dev).Result;
+
+            /* Notify the manager. */
+            var info = targ.Info;
+            parent.NotifyDiscoveryEvent(info, true);
+            
+            /* Save info ourself. */
+            discoveryInfos[dev.LocationId] = info;
+        }
+        else if (e is DeviceLeftEventArgs)
+        {
+            var devInfo =  (e as DeviceLeftEventArgs).DeviceInfo.PortInfo;
+            if (!discoveryInfos.ContainsKey(devInfo))
+                return;
+            
+            /* Remove it. */
+            parent.NotifyDiscoveryEvent(discoveryInfos[devInfo], false);
+            discoveryInfos.Remove(devInfo);
+        }
     }
 
     public void NotifyClose(UsbPacketManager child)

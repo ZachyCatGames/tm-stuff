@@ -16,6 +16,7 @@ service TargetManagerService {
   rpc QueryTargetInfo (QueryTargetInfoRequest) returns (QueryTargetInfoReply);
   rpc QueryTargetInfoBySerial (QueryTargetInfoBySerialRequest) returns (QueryTargetInfoBySerialReply);
   rpc GetTargetUpdate (GetTargetUpdateRequest) returns (GetTargetUpdateReply);
+  rpc DiscoverTarget (DiscoverTargetRequest) returns (DiscoverTargetReply);
 }
 
 message InitManagerClientContextRequest {
@@ -73,4 +74,13 @@ message GetTargetUpdateReply {
   TargetResult result = 1;
   TargetEventType eventType = 2;
   TargetInfo info = 3;
+}
+
+message DiscoverTargetRequest {
+  int32 contextId = 1;
+}
+
+message DiscoverTargetReply {
+  TargetResult result = 1;
+  TargetInfo info = 2;
 }

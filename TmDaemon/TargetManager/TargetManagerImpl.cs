@@ -5,22 +5,30 @@ namespace Test.TargetManager;
 public class TargetManagerImpl : ITargetManager
 {
     private readonly Dictionary<string, Target.Target> targets   = new();
-    private readonly List<ITargetProvider>      providers = new();
+    private readonly List<ITargetProvider>             providers = new();
 
     private readonly Dictionary<int, TargetManagerClientContext> clientContexts   = new();
     private int                                                  currentContextId = 0;
     
-    private readonly List<ITargetEventCallback> targetEvCallbacks = new();
-    
+    private readonly List<EventRecorder<TargetEvent>> targetEvCallbacks = new();
+    private readonly List<EventRecorder<TargetInfo>> discoveryObservers = new();
 
-    private TargetInfo RegisterConnection(Target.Target targ)
+    private readonly List<TargetInfo> registeredInfo = new();
+    private readonly SemaphoreSlim    targetEvLock   = new(1);
+
+    private bool isDiscoveryActive = false;
+    private readonly List<TargetInfo> discovered = new();
+    private readonly SemaphoreSlim discoveryLock = new(1);
+
+    private async Task<TargetInfo> RegisterConnection(Target.Target targ)
     {
         /* Register the target. */
         targets[targ.Info.SerialNumber] = targ;
         
-        /* Send a connect callback to all listeners. */
+        /* Send a connect event to all listeners. */
         var info = targ.Info;
-        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(info, TargetEventType.Connected)));
+        using (var l = await AsyncLockHolder.EnterAsync(targetEvLock))
+            targetEvCallbacks.ForEach(c => c.OnNext(new TargetEvent(info, TargetEventType.Connected)));
         
         return info;
     }
@@ -28,9 +36,46 @@ public class TargetManagerImpl : ITargetManager
     public TargetManagerImpl()
     {
         /* Create providers for USB and TICS (TODO). */
-        providers.Add(new UsbTargetProvider(this));
+        this.providers.Add(new UsbTargetProvider(this));
+        
+        /* TODO: Fill out registered list. */
     }
 
+    private async Task InitializeEventContextImpl(TargetManagerClientContext ctx)
+    {
+        using var l = await AsyncLockHolder.EnterAsync(targetEvLock);
+        
+        /* Add the event observer. */
+        this.targetEvCallbacks.Add(ctx.TargetEventContext);
+        
+        /* Send events for each currently registered target. */
+        foreach (var targ in registeredInfo)
+        {
+            TargetEventType type = targ.Status == TargetStatus.Disconnected ? TargetEventType.Disconnected : TargetEventType.Connected;
+            ctx.TargetEventContext.OnNext(new TargetEvent(targ, type));
+        }
+    }
+
+    private async Task InitializeDiscoveryContextImpl(TargetManagerClientContext ctx)
+    {
+        using var loc = await AsyncLockHolder.EnterAsync(discoveryLock);
+        
+        /* Add the discovery observer. */
+        targetEvCallbacks.Add(ctx.TargetEventContext);
+        
+        /* If this is the first, start discovery on all providers. */
+        if (discoveryObservers.Count == 1)
+        {
+            providers.ForEach(p => p.BeginTargetDiscovery());
+            isDiscoveryActive = true;
+        }
+        else
+        {
+            /* Send notificaitons for all current events. */
+            discovered.ForEach(d => ctx.TargetDiscoveryContext.OnNext(d));
+        }
+    }
+    
     public async Task<int> InitializeClientContext(UInt64 flags)
     {
         /* Allocate a context id. */
@@ -42,13 +87,40 @@ public class TargetManagerImpl : ITargetManager
         /* Register event callback if needed. */
         if ((flags & ManagerContextFlags.TargetEvent) != 0)
         {
-            targetEvCallbacks.Add(ctx.TargetEventContext.EventCallback);
+            await this.InitializeEventContextImpl(ctx);
+        }
+        if ((flags & ManagerContextFlags.TargetDiscover) != 0)
+        {
+            await this.InitializeDiscoveryContextImpl(ctx);
         }
 
         /* Register the client context. */
         clientContexts.Add(contextId, ctx);
 
         return contextId;
+    }
+
+    private async Task FinalizeEventContextImpl(TargetManagerClientContext ctx)
+    {
+        using var l = await AsyncLockHolder.EnterAsync(targetEvLock);
+        
+        /* Remove the observer. */
+        targetEvCallbacks.Remove(ctx.TargetEventContext);
+    }
+
+    private async Task FinalizeDiscoveryContextImpl(TargetManagerClientContext ctx)
+    {
+        using var loc = await AsyncLockHolder.EnterAsync(discoveryLock);
+        
+        /* Remove the observer. */
+        discoveryObservers.Remove(ctx.TargetDiscoveryContext);
+        
+        /* If this was the last observer, stop discovery. */
+        if (discoveryObservers.Count == 0)
+        {
+            providers.ForEach(p => p.EndTargetDiscovery());
+            isDiscoveryActive = false;
+        }
     }
 
     public async Task<TargetResult> FinalizeClientContext(int contextId)
@@ -63,7 +135,11 @@ public class TargetManagerImpl : ITargetManager
         /* Unregister event callback if needed. */
         if ((ctx.Flags & ManagerContextFlags.TargetEvent) != 0)
         {
-            targetEvCallbacks.Remove(ctx.TargetEventContext.EventCallback);
+            await this.FinalizeEventContextImpl(ctx);
+        }
+        if ((ctx.Flags & ManagerContextFlags.TargetDiscover) != 0)
+        {
+            await this.FinalizeDiscoveryContextImpl(ctx);
         }
         
         /* Cancel any push/pop operations. */
@@ -129,7 +205,7 @@ public class TargetManagerImpl : ITargetManager
         TargetEvent ev;
         try
         {
-            ev = await ctx.TargetEventContext.PopTargetEvent(cancelToken);
+            ev = await ctx.TargetEventContext.PopEvent();
         }
         catch (OperationCanceledException)
         {
@@ -153,7 +229,7 @@ public class TargetManagerImpl : ITargetManager
             Target.Target? targ = await provider.ConnectAsync(serialNumber);
             if (targ != null)
             {
-                return RegisterConnection(targ);
+                return await RegisterConnection(targ);
             }
         }
         return null;
@@ -170,7 +246,8 @@ public class TargetManagerImpl : ITargetManager
             return;
         
         /* Send a disconnect event to all listeners. */
-        targetEvCallbacks.ForEach(c => c.Notify(new TargetEvent(target.Info, TargetEventType.Disconnected)));
+        using (var l = await AsyncLockHolder.EnterAsync(targetEvLock))
+            targetEvCallbacks.ForEach(c => c.OnNext(new TargetEvent(target.Info, TargetEventType.Disconnected)));
         
         /* Dispose the target. */
         target.Dispose();
@@ -186,6 +263,35 @@ public class TargetManagerImpl : ITargetManager
         return null;
     }
     
+    public async Task<(TargetResult, TargetInfo?)> DiscoverTarget(int contextId, CancellationToken cancelToken)
+    {
+        TargetManagerClientContext ctx;
+        using (var l = await AsyncLockHolder.EnterAsync(discoveryLock))
+        {
+            if (!clientContexts.TryGetValue(contextId, out ctx))
+                return (TargetResult.InvalidContextId, null);
+        }
+        
+        /* This context must have discovery enabled. */
+        if (!ctx.HasDiscovery)
+            return (TargetResult.CtxOpNotEnabled, null);
+        
+        /* Wait for a new discovery. */
+        var info = await ctx.TargetDiscoveryContext.PopEvent();
+        return (TargetResult.Success, info);
+    }
+
+    public void NotifyDiscoveryEvent(TargetInfo target, bool attached)
+    {
+        using var l =  AsyncLockHolder.Enter(discoveryLock);
+        
+        /* Add to the discovered list. */
+        discovered.Add(target);
+        
+        /* Notify current observers. */
+        discoveryObservers.ForEach(c => c.OnNext(target));
+    }
+
     private async Task<List<TargetInfo>> QueryTargetInfosImpl(QueryType type)
     {
         List<TargetInfo> infos = new List<TargetInfo>();
@@ -203,4 +309,5 @@ public class TargetManagerImpl : ITargetManager
 
         return infos;
     }
+    
 }

@@ -9,4 +9,7 @@ public interface ITargetProvider
     public Task<List<TargetInfo>> QueryConnectedInfosAsync();
     
     public Task<Target.Target?> ConnectAsync(string serialNumber);
+
+    public void BeginTargetDiscovery();
+    public void EndTargetDiscovery();
 }

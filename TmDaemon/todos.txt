@@ -1,0 +1,16 @@
+- implement discovery api in manager grpc service
+- implement registered target listing
+    - implement call for registering a target
+    - implement code for saving the registration list
+- remove(?) old GetTargetList etc commands (maybe?)
+    - they don't make much sense as-is with the new registered target stuff
+    - could change disconnected/connected types to only pull from registered list, then add a new "unregistered" search type.
+
+- handle connections / disconnections in a less convoluted way
+    - Connect should return AlreadyConnected if a connection already exists
+    - dc is spaghetti (not the good kind) :(
+
+- fix sudden disconnection (I broke it at some point)
+
+- how the fuck should discovery in tics work???
+    - on that note, tics is horribly outdated

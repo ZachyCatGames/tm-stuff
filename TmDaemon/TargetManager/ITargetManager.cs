@@ -10,9 +10,13 @@ public interface ITargetManager
     public Task<int> QueryTargetCountAsync(QueryType type);
     public Task<List<TargetInfo>> QueryTargetInfosAsync(QueryType type, int maxCount);
     public Task<TargetInfo?> QueryTargetInfoBySerialAsync(string serial);
-    public Task<(TargetResult, TargetEvent?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken);
 
     public Task<TargetInfo?> ConnectTargetAsync(string serialNumber);
     public Task DisconnectTargetAsync(Target.Target target);
     public Task<Target.Target?> GetTargetAsync(string serialNumber);
+    
+    public Task<(TargetResult, TargetEvent?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken);
+    public Task<(TargetResult, TargetInfo?)> DiscoverTarget(int contextId, CancellationToken cancelToken);
+
+    public void NotifyDiscoveryEvent(TargetInfo target, bool attached);
 }
