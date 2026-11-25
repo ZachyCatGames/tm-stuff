@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Test.dbg;
 using Test.hio;
 using Test.htcs;
 using Test.env;
@@ -25,6 +26,7 @@ public class Target : IDisposable, IAsyncDisposable
     private readonly HostIOService          hioService;
     private readonly HostDirectoryIOService hioDirService;
     private readonly HostEnvService         envService;
+    private readonly HostDebugService       debugService;
     
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
@@ -52,6 +54,7 @@ public class Target : IDisposable, IAsyncDisposable
         hioService    = new HostIOService(serviceManager, hostfsManager);
         hioDirService = new HostDirectoryIOService(serviceManager, hostfsManager);
         envService    = new HostEnvService(serviceManager);
+        debugService  = new HostDebugService(serviceManager, taskIdAlloc);
         
         clientContexts   = new();
     }
@@ -63,6 +66,7 @@ public class Target : IDisposable, IAsyncDisposable
         serviceManager.RegisterService(hioService);
         serviceManager.RegisterService(hioDirService);
         serviceManager.RegisterService(envService);
+        serviceManager.RegisterService(debugService);
         
         /* Setup client context vars. */
         currentContextId = 0;
@@ -110,7 +114,7 @@ public class Target : IDisposable, IAsyncDisposable
     {
         /* Start the packet manager properly. */
         await packetManager.ConnectAsync();
-        
+
         /* Update our status to connected. */
         Info.Status = TargetStatus.Connected;
     }
@@ -128,6 +132,7 @@ public class Target : IDisposable, IAsyncDisposable
         packetManager.DisconnectAsync().Wait();
         
         /* Finalize service manager. */
+        serviceManager.CancelAllTasksAsync().Wait();
         serviceManager.Finalize();
         
         /* Cancel any port event observers. */
