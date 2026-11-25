@@ -119,14 +119,14 @@ public class ServiceManager
         Packet pkt = freePacketsForSend.Take();
         pkt.Reset();
         return pkt;
-    };
+    }
 
     public async Task<Packets.Packet> AllocSendPacketAsync()
     {
         Packet pkt = await freePacketsForSend.TakeAsync();
         pkt.Reset();
         return pkt;
-    };
+    }
     
     /* These are for tasks to send replies or w/e */
     public void SendPacket(Packets.Packet pkt)
