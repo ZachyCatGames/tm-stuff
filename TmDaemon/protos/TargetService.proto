@@ -25,6 +25,7 @@ service TargetService {
 
 message InitTargetClientContextRequest {
   string serialNumber = 1;
+  uint64 flags = 2;
 }
 
 message InitTargetClientContextReply {

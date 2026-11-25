@@ -5,36 +5,58 @@ namespace Test.Target;
 
 public class TargetClientContext
 {
-    private class PortCallbackImpl : IPortEventCallback
+    public class Htcs
     {
-        private readonly TargetClientContext parent;
-        
-        public PortCallbackImpl(TargetClientContext ctx)
+        private class PortCallbackImpl : IPortEventCallback
         {
-            parent = ctx;
+            private readonly Htcs parent;
+        
+            public PortCallbackImpl(Htcs ctx)
+            {
+                parent = ctx;
+            }
+
+            public void Notify(PortEvent ev) => parent.PushPortEvent(ev);
         }
-
-        public void Notify(PortEvent ev) => parent.PushPortEvent(ev);
+        
+        private readonly PortCallbackImpl   portCallback;
+        private readonly CancellationToken  cancelToken;
+        private readonly Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();
+        
+        public Htcs(CancellationToken cancelToken)
+        {
+            this.cancelToken  = cancelToken;
+            this.portCallback = new PortCallbackImpl(this);
+        }
+        
+        public IPortEventCallback PortEventCallback { get => portCallback; }
+        
+        public void PushPortEvent(PortEvent ev) => portEventQueue.Writer.TryWrite(ev);
+        
+        public async Task<PortEvent> PopPortEventAsync(CancellationToken cancelToken)
+        {
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken, this.cancelToken.Token);
+            return await portEventQueue.Reader.ReadAsync(cts.Token);
+        }
     }
 
-    private readonly PortCallbackImpl        portCallback;
-    private readonly CancellationTokenSource cancelPop = new();
+    public readonly UInt64 Flags;
     
-    private readonly Channel<PortEvent> portEventQueue = Channel.CreateUnbounded<PortEvent>();
-    
-    public TargetClientContext()
+    private readonly CancellationTokenSource cancelToken;
+
+    public Htcs? HtcsContext { get; init; }
+
+    public TargetClientContext(UInt64 flags)
     {
-        portCallback = new(this);
-    }
-    
-    public IPortEventCallback PortEventCallback { get => portCallback; }
-    
-    public void PushPortEvent(PortEvent ev) => portEventQueue.Writer.TryWrite(ev);
-    public async Task<PortEvent> PopPortEventAsync(CancellationToken cancelToken)
-    {
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken, cancelPop.Token);
-        return await portEventQueue.Reader.ReadAsync(cts.Token);
+        Flags = flags;
+        
+        /* Setup HTCS context if required. */
+        if ((Flags & (UInt64)TargetContextFlags.HTCS) != 0)
+        {
+            HtcsContext = new Htcs(cancelToken.Token);
+        }
+        
     }
 
-    public void CancelPop() => cancelPop.Cancel();
+    public void Cancel() => cancelToken.Cancel();
 }

@@ -14,6 +14,7 @@ enum TargetResult {
   TargetResult_InProgress = 6;
   TargetResult_InvalidContextId = 7;
   TargetResult_NotImplemented = 8;
+  TargetResult_CtxOpNotEnabled = 10;
   
   /* HTCS results. */
   TargetResult_PortNotFound = 1000;

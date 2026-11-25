@@ -19,7 +19,7 @@ service TargetManagerService {
 }
 
 message InitManagerClientContextRequest {
-  /* ... */
+  uint64 flags = 1;
 }
 
 message InitManagerClientContextReply {

@@ -140,7 +140,7 @@ public class Target : IDisposable, IAsyncDisposable
         /* Cancel any port event observers. */
         foreach (var ctx in clientContexts.Values)
         {
-            ctx.CancelPop();
+            ctx.Cancel();
         }
         
         /* Finalize the file manager. */
@@ -215,16 +215,19 @@ public class Target : IDisposable, IAsyncDisposable
         await CloseAsyncUnsafe();
     }
 
-    public async Task<int> InitializeClientContext()
+    public async Task<int> InitializeClientContext(UInt64 flags)
     {
         /* Allocate a context id. */
         int contextId = Interlocked.Increment(ref currentContextId);
         
         /* Create a new client context. */
-        var ctx = new TargetClientContext();
+        var ctx = new TargetClientContext(flags);
         
-        /* Register context callback(s). */
-        await htcsManager.RegisterEventCallbackAsync(ctx.PortEventCallback);
+        /* Register HTCS callback. */
+        if ((flags & (UInt64)TargetContextFlags.HTCS) != 0)
+        {
+            await htcsManager.RegisterEventCallbackAsync(ctx.HtcsContext.PortEventCallback);
+        }
         
         /* Register the client context. */
         using (var h = await AcquireLockAsync())
@@ -244,10 +247,13 @@ public class Target : IDisposable, IAsyncDisposable
             clientContexts.Remove(contextId);
         
         /* Unregister our callback. */
-        await htcsManager.UnregisterEventCallbackAsync(ctx.PortEventCallback);
+        if ((ctx.Flags & (UInt64)TargetContextFlags.HTCS) != 0)
+        {
+            await htcsManager.UnregisterEventCallbackAsync(ctx.HtcsContext.PortEventCallback);
+        }
         
         /* Cancel any push/pop operation. */
-        ctx.CancelPop();
+        ctx.Cancel();
 
         return TargetResult.Success;
     }
@@ -268,11 +274,17 @@ public class Target : IDisposable, IAsyncDisposable
                 return (TargetResult.InvalidContextId, null);
         }
         
+        /* This context must have HTCS events enabled. */
+        if ((ctx.Flags & (UInt64)TargetContextFlags.HTCS) == 0)
+        {
+            return (TargetResult.CtxOpNotEnabled, null);
+        }
+        
         /* Wait for a port update. */
         PortEvent ev;
         try
         {
-            ev = await ctx.PopPortEventAsync(cancelToken);
+            ev = await ctx.HtcsContext.PopPortEventAsync(cancelToken);
         }
         catch (OperationCanceledException)
         {
