@@ -19,6 +19,8 @@ public abstract class ServiceTask
     private CancellationTokenSource cancelSrc = new();
 
     private readonly ServiceManager manager;
+    
+    public bool IsStarted { get; private set; }
 
     public ServiceTask(IService par, TaskType type, uint taskId, uint prio)
     {
@@ -29,6 +31,8 @@ public abstract class ServiceTask
         this.taskId    = taskId;
         this.priority  = prio;
         this.manager   = par.GetManager();
+
+        this.IsStarted = false;
     }
     
     public void Cancel() => cancelSrc.Cancel();
@@ -42,9 +46,10 @@ public abstract class ServiceTask
     public virtual void StartImpl()
     {
         task = StartImplAsync();
+        IsStarted = true;
     }
 
-    public bool IsDone() => task.IsCompleted || task.IsCanceled;
+    public bool IsDone() => IsStarted && (task.IsCompleted || task.IsCanceled);
 
     public void WaitDone() => task.Wait();
     
