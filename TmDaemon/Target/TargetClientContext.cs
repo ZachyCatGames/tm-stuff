@@ -35,7 +35,7 @@ public class TargetClientContext
         
         public async Task<PortEvent> PopPortEventAsync(CancellationToken cancelToken)
         {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken, this.cancelToken.Token);
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancelToken, cancelToken);
             return await portEventQueue.Reader.ReadAsync(cts.Token);
         }
     }
