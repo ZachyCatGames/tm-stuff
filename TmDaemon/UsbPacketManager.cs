@@ -8,13 +8,13 @@ using LibUsbDotNet;
 public class UsbPacketManager : IPacketManager
 {
     // connect + beacon reply
-    private const UInt32 InitializeServiceId        = 0xcd5ed1b8;
+    private const UInt32 InitializeServiceId    = 0xcd5ed1b8;
     // disconnect + no reply
-    private const UInt32 FinalizeServiceId          = 0xf97fe6b9;
+    private const UInt32 FinalizeQuietServiceId = 0xf97fe6b9;
     // beacon reply
-    private const UInt32 QueryBeaconPacketServiceId = 0x3a8ddd94;
+    private const UInt32 FinalizeServiceId      = 0x3a8ddd94;
     // send host info + no reply
-    private const UInt32 SendHostInfoServiceId      = 0x4d4a6c24;
+    private const UInt32 SendHostInfoServiceId  = 0x4d4a6c24;
 
     private class ManagerService : IService
     {
@@ -29,8 +29,8 @@ public class UsbPacketManager : IPacketManager
         public bool AcceptsServicesId(uint serviceId)
         {
             return serviceId == InitializeServiceId ||
+                   serviceId == FinalizeQuietServiceId ||
                    serviceId == FinalizeServiceId ||
-                   serviceId == QueryBeaconPacketServiceId ||
                    serviceId == SendHostInfoServiceId;
         }
         
@@ -60,7 +60,7 @@ public class UsbPacketManager : IPacketManager
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
-            pkt.Write((UInt32)0);
+            pkt.Write((UInt32)4);
             pkt.WriteHeader();
             
             /* Send the packet. */
@@ -87,7 +87,7 @@ public class UsbPacketManager : IPacketManager
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
-            pkt.Write((UInt32)0);
+            pkt.Write((UInt32)4);
             pkt.WriteHeader();
             
             /* Send the packet. */
@@ -100,6 +100,34 @@ public class UsbPacketManager : IPacketManager
         }
         
         public void Dispose() => BeaconPacket.Release();
+    }
+    
+    private class HostInfoTask : ServiceTask
+    {
+        private UInt32 serviceId;
+        private string info;
+        
+        public HostInfoTask(UInt32 serviceId, ManagerService mgr, string info) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
+        {
+            this.serviceId = serviceId;
+            this.info      = info;
+        }
+
+        protected override async Task Run()
+        {
+            /* Setup the packet. */
+            Packet pkt = await AllocSendPacketAsync();
+            pkt.Reset();
+            pkt.serviceId = serviceId;
+            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
+            pkt.isInitiate = false;
+            pkt.taskType = TaskType.Invalid;
+            pkt.Write(info);
+            pkt.WriteHeader();
+            
+            /* Send the packet. */
+            await SendPacketAsync(pkt);
+        }
     }
     
     private readonly Thread sendThread;
@@ -172,7 +200,10 @@ public class UsbPacketManager : IPacketManager
     public async Task ConnectAsync()
     {
         /* Send QueryInfo. */
-        await SendBeaconTaskImplAsync(QueryBeaconPacketServiceId);
+        await SendBeaconTaskImplAsync(FinalizeServiceId);
+        
+        /* Send host info. */
+        await SendHostInfoPacketImplAsync("BCID: 96\nPS: 0\n");
         
         /* Actually connect. */
         await ReconnectAsync();
@@ -196,13 +227,10 @@ public class UsbPacketManager : IPacketManager
         /* Block new initiate requests. */
         serviceManager.InitiaiteLock = true;
         
-        /* Cancel all tasks. */
-        await serviceManager.CancelAllTasksAsync();
-        
         /* Send the disconnect packet. */
-        if (sendDcPkt)
+        if (false) //sendDcPkt)
         {
-            NormalTask task = new(FinalizeServiceId, managerService);
+            NormalTask task = new(FinalizeQuietServiceId, managerService);
             serviceManager.RegisterNewTask(task);
             await task.WaitDoneAsync();
         }
@@ -235,7 +263,7 @@ public class UsbPacketManager : IPacketManager
         }
 
         /* Send a query packet. */
-        await SendBeaconTaskImplAsync(QueryBeaconPacketServiceId);
+        await SendBeaconTaskImplAsync(FinalizeServiceId);
         return beaconPacket;
     }
 
@@ -272,6 +300,16 @@ public class UsbPacketManager : IPacketManager
         
         /* Release the packet. */
         task.Dispose();
+    }
+
+    private async Task SendHostInfoPacketImplAsync(string info)
+    {
+        /* Setup task. */
+        var task = new HostInfoTask(SendHostInfoServiceId, managerService, info);
+        serviceManager.RegisterNewTask(task);
+        
+        /* Wait for it to finish. */
+        await task.WaitDoneAsync();
     }
 
     private void NotifyAbruptClose()
