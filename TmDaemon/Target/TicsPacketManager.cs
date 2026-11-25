@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
-using Test.Packet;
+using Test.Packets;
 using Test.Services;
 
 namespace Test.Target;
@@ -41,12 +41,12 @@ public class TicsPacketManager : IPacketManager
         
     }
 
-    public void SendPacket(Packet.Packet pkt)
+    public void SendPacket(Packets.Packet pkt)
     {
         packetQueue.Add(pkt);
     }
 
-    public Task SendPacketAsync(Packet.Packet pkt)
+    public Task SendPacketAsync(Packets.Packet pkt)
     {
         return packetQueue.AddAsync(pkt);
     }
@@ -200,17 +200,17 @@ public class TicsPacketManager : IPacketManager
         while (true)
         {
             /* Receive a packet from the service manager. */
-            Packet.Packet pkt = packetQueue.Take();
+            Packets.Packet pkt = packetQueue.Take();
 
             /* Setup tics header. */
-            var hdrParsed = new TicsPacketHeader((uint)(0x8 + Packet.Packet.HeaderSize + pkt.dataSize), 0x00080100);
+            var hdrParsed = new TicsPacketHeader((uint)(0x8 + Packets.Packet.HeaderSize + pkt.dataSize), 0x00080100);
             hdrParsed.WriteTo(hdr);
 
             /* Send tics header. */
             SendBlocking(hdr);
 
             /* Send the packet. */
-            SendBlocking(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.Packet.HeaderSize + pkt.dataSize));
+            SendBlocking(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packets.Packet.HeaderSize + pkt.dataSize));
 
             /* Release the packet. */
             pkt.Release();
@@ -234,7 +234,7 @@ public class TicsPacketManager : IPacketManager
             }
 
             /* Allocate a packet. */
-            Packet.Packet pkt = serviceManager.AllocRecvPacket();
+            Packets.Packet pkt = serviceManager.AllocRecvPacket();
 
             /* Receive a header. */
             RecvBlocking(pkt.GetHeaderBuffer());

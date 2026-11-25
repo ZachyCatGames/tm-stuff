@@ -4,12 +4,27 @@ using Test.Services.dbg;
 using Test.Services.env;
 using Test.Services.hio;
 using Test.Services.htcs;
+using Test.Services.powermanagement;
 using Test.TargetManager;
 
 namespace Test.Target;
 
 public class Target : IDisposable, IAsyncDisposable
 {
+    private class TargetPmObserver : IObserver<PmState>
+    {
+        private readonly Target parent;
+
+        public TargetPmObserver(Target target)
+        {
+            this.parent = target;
+        }
+
+        public void OnNext(PmState value) => this.parent.OnPmStateChanged(value);
+        public void OnError(Exception error) {}
+        public void OnCompleted() {}
+    }
+    
     private readonly ITargetManager parent;
 
     private readonly SemaphoreSlim asyncLock = new(1);
@@ -29,11 +44,17 @@ public class Target : IDisposable, IAsyncDisposable
     private readonly HostDirectoryIOService hioDirService;
     private readonly HostEnvService         envService;
     private readonly HostDebugService       debugService;
+    private readonly HostPmService          pmService;
     
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
     
     public TargetInfo? Info { get; private set; }
+
+    private void OnPmStateChanged(PmState state)
+    {
+        
+    }
     
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
     {
@@ -53,6 +74,7 @@ public class Target : IDisposable, IAsyncDisposable
         hioDirService = new HostDirectoryIOService(serviceManager, hostfsManager);
         envService    = new HostEnvService(serviceManager);
         debugService  = new HostDebugService(serviceManager, taskIdAlloc);
+        pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), true);
         
         clientContexts   = new();
     }
@@ -65,6 +87,7 @@ public class Target : IDisposable, IAsyncDisposable
         serviceManager.RegisterService(hioDirService);
         serviceManager.RegisterService(envService);
         serviceManager.RegisterService(debugService);
+        serviceManager.RegisterService(pmService);
         
         /* Setup client context vars. */
         currentContextId = 0;

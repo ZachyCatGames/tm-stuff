@@ -1,4 +1,4 @@
-using Test.Packet;
+using Test.Packets;
 
 namespace Test.Target;
 

@@ -24,6 +24,7 @@ enum TargetStatus {
   TargetStatus_Disconnected = 0;
   TargetStatus_Connected = 1;
   TargetStatus_Unplugged = 2;
+  TargetStatus_Asleep = 3;
 }
 
 enum QueryType {

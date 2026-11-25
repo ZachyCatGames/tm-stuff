@@ -1,7 +1,7 @@
 using LibUsbDotNet;
 using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
-using Test.Packet;
+using Test.Packets;
 using Test.Services;
 using Test.TargetManager;
 
@@ -38,7 +38,7 @@ public class UsbPacketManager : IPacketManager
         
         public UInt32 GetPrimaryServiceId() => 0;
 
-        public ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+        public ServiceTask? ProcessNewRequest(Packets.Packet pkt)
         {
             throw new NotImplementedException();
         }
@@ -56,14 +56,12 @@ public class UsbPacketManager : IPacketManager
         protected override async Task Run()
         {
             /* Setup the packet. */
-            Packet.Packet pkt = await AllocSendPacketAsync();
-            pkt.Reset();
+            Packets.Packet pkt = await AllocSendPacketAsync();
             pkt.serviceId = serviceId;
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
             pkt.Write((UInt32)4);
-            pkt.WriteHeader();
             
             /* Send the packet. */
             await SendPacketAsync(pkt);
@@ -74,7 +72,7 @@ public class UsbPacketManager : IPacketManager
     {
         private UInt32 serviceId;
         
-        public Packet.Packet BeaconPacket { get; private set; }
+        public Packets.Packet BeaconPacket { get; private set; }
         public BeaconTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
         {
             this.serviceId = serviceId;
@@ -83,7 +81,7 @@ public class UsbPacketManager : IPacketManager
         protected override async Task Run()
         {
             /* Setup the packet. */
-            Packet.Packet pkt = await AllocSendPacketAsync();
+            Packets.Packet pkt = await AllocSendPacketAsync();
             pkt.Reset();
             pkt.serviceId = serviceId;
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
@@ -118,7 +116,7 @@ public class UsbPacketManager : IPacketManager
         protected override async Task Run()
         {
             /* Setup the packet. */
-            Packet.Packet pkt = await AllocSendPacketAsync();
+            Packets.Packet pkt = await AllocSendPacketAsync();
             pkt.Reset();
             pkt.serviceId = serviceId;
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
@@ -341,24 +339,24 @@ public class UsbPacketManager : IPacketManager
         parent.NotifyAbruptClose(this);
     }
     
-    private Error RecvPacketImpl(ref Packet.Packet pkt)
+    private Error RecvPacketImpl(ref Packets.Packet pkt)
     {
         /* Receive the packet. */
-        return usbIf.Read(pkt.GetBuffer(), 0, Packet.Packet.PacketMaxSize, out int sizeRead);
+        return usbIf.Read(pkt.GetBuffer(), 0, Packets.Packet.PacketMaxSize, out int sizeRead);
     }
 
-    private Error SendPacketImpl(Packet.Packet pkt)
+    private Error SendPacketImpl(Packets.Packet pkt)
     {
         /* First, send the header. */
         byte[] buf = pkt.GetBuffer();
-        Error err  = usbIf.Write(buf, 0, Packet.Packet.HeaderSize, out int hdrSize);
+        Error err  = usbIf.Write(buf, 0, Packets.Packet.HeaderSize, out int hdrSize);
         if (err != Error.Success)
             return err;
         //Console.WriteLine("sendidx = {0}, {1} bytes", j++, pkt.dataSize);
 
         /* Then the data. */
         //Console.WriteLine(pkt.GetDataSize());
-        return usbIf.Write(buf, Packet.Packet.HeaderSize, pkt.dataSize, out int dataSize);
+        return usbIf.Write(buf, Packets.Packet.HeaderSize, pkt.dataSize, out int dataSize);
     }
 
     private async Task StopThreadsAsync()
@@ -382,7 +380,7 @@ public class UsbPacketManager : IPacketManager
         while (true)
         {
             /* Pop a packet. */
-            Packet.Packet pkt;
+            Packets.Packet pkt;
             try
             {
                 pkt = serviceManager.PopSendPacketAsync(cancelSrc.Token).Result;
@@ -423,7 +421,7 @@ public class UsbPacketManager : IPacketManager
         while (true)
         {
             /* Allocate a recv packet. */
-            Packet.Packet pkt = serviceManager.AllocRecvPacket();
+            Packets.Packet pkt = serviceManager.AllocRecvPacket();
 
             /* Wait for a message. */
             Error err = RecvPacketImpl(ref pkt);
