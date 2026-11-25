@@ -17,14 +17,15 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private SemaphoreSlim asyncLock = new(1);
 
-    private Dictionary<int, Target.Target> connectedTargets = new();
+    private Dictionary<LocationId, Target.Target> connectedTargets = new();
 
     private UsbContext context;
 
     private Task? hotplugMonitor;
-    private CancellationTokenSource? discoveryCts;
-    private readonly Channel<DeviceEventArgs> discoveryEvents = Channel.CreateUnbounded<DeviceEventArgs>();
+    private CancellationTokenSource? hotplugCts;
+    private readonly Channel<DeviceEventArgs> hotplugEvents = Channel.CreateUnbounded<DeviceEventArgs>();
     private readonly Dictionary<LocationId, TargetInfo> discoveryInfos = new();
+    private bool discoveryEnabled = false;
 
     public UsbTargetProvider(ITargetManager parent)
     {
@@ -41,7 +42,15 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     
     private async Task<(Target.Target?, bool)> CreateTargetAsyncUnsafe(UsbDevice device)
     {
-        int id = device.Address | (device.BusNumber << 8);
+        LocationId id;
+        try
+        {
+            id = device.LocationId;
+        }
+        catch (UsbException e)
+        {
+            return (null, false);
+        }
         
         /* Check if we already have a target for this device. */
         if (connectedTargets.ContainsKey(id))
@@ -63,13 +72,65 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         }
 
         /* Create a new target. */
+        UsbPacketManager pktMgr;
+        Target.Target targ;
         var serviceMgr = new ServiceManager();
-        var usbif      = new UsbInterface(device);
-        var pktMgr     = new UsbPacketManager(usbif, serviceMgr, this);
-        var targ       = new Target.Target(parent, serviceMgr, pktMgr);
+        
+        try
+        {
+            pktMgr = new UsbPacketManager(device, serviceMgr, this);
+        }
+        catch (UsbException e)
+        {
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+            device.Dispose();
+            return (null, false);
+        }
+        catch (Exception e)
+        {
+            device.Dispose();
+            return (null, false);
+        }
+
+        try
+        {
+            targ = new Target.Target(parent, serviceMgr, pktMgr);
+        }
+        catch (UsbException e)
+        {
+            await pktMgr.CloseAsync();
+            pktMgr.Dispose();
+            return (null, false);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+            await pktMgr.CloseAsync();
+            pktMgr.Dispose();
+            return (null, false);
+        }
 
         /* Initialize target. */
-        await targ.InitializeAsync();
+        bool success = false;
+        try
+        {
+            success = await targ.InitializeAsync();
+        }
+        catch (UsbException e)
+        {
+            /* ... */
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+        }
+
+        if (!success)
+        {
+            await targ.DisconnectAsync();
+            await targ.DisposeAsync();
+            return (null, false);
+        }
         
         return (targ, true);
     }
@@ -82,17 +143,17 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             foreach (var dev in sdkDevices)
             {
-                var (targ, isNew) = await CreateTargetAsyncUnsafe((UsbDevice)(dev.Clone()));
-                if (isNew)
+                var (target, isNew) = await CreateTargetAsyncUnsafe((UsbDevice)(dev.Clone()));
+                if (isNew && target != null)
                 {
-                    if (pred(targ))
+                    if (pred(target))
                     {
-                        list.Add(targ);
+                        list.Add(target);
                     }
                     else
                     {
-                        await targ.CloseAsync();
-                        await targ.DisposeAsync();
+                        await target.CloseAsync();
+                        await target.DisposeAsync();
                     }
                 } 
             }
@@ -165,9 +226,9 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             {
                 /* Connect to it. */
                 await targ.ConnectAsync();
-            
+
                 /* Add it to the connected list. */
-                int id = ((UsbPacketManager)targ.GetPacketManager()).GetUsbDeviceNumber();
+                var id = ((UsbPacketManager)targ.GetPacketManager()).UsbLocationId;
                 connectedTargets[id] = targ;
 
                 /* Dispose of the last selected target. */
@@ -187,10 +248,10 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         return selected;
     }
 
-    public void BeginTargetDiscovery()
+    public void BeginTargetHotplug()
     {
         Debug.Assert(hotplugMonitor == null);
-        Debug.Assert(discoveryCts == null);
+        Debug.Assert(hotplugCts == null);
         
         if (context.IsUsingHotplug)
             return;
@@ -199,7 +260,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         context.DeviceEvent += HotplugCallback;
         
         /* Start the hotplug monitor. */
-        discoveryCts = new();
+        hotplugCts = new();
         hotplugMonitor = HotplugWorker();
         
         /* Begin usb hotplug. */
@@ -208,16 +269,16 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         Console.WriteLine("here");
     }
 
-    public async Task EndTargetDiscoveryAsync()
+    public async Task EndTargetHotplug()
     {
-        Debug.Assert(discoveryCts != null);
+        Debug.Assert(hotplugCts != null);
         Debug.Assert(hotplugMonitor != null);
         
         /* Stop hotplug. */
         context.UnregisterHotPlug();
         
         /* Signal that we're done. */
-        await discoveryCts.CancelAsync();
+        await hotplugCts.CancelAsync();
         await hotplugMonitor;
         
         /* Remove ourself as an event listen. */
@@ -225,13 +286,56 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         
         /* Cleanup. */
         discoveryInfos.Clear();
-        discoveryCts = null;
+        hotplugCts = null;
         hotplugMonitor = null;
     }
-
+    
     private void HotplugCallback(object? sender, DeviceEventArgs e)
     {
-        discoveryEvents.Writer.TryWrite(e);
+        hotplugEvents.Writer.TryWrite(e);
+    }
+
+    private async Task HandleDevicePlugged(DeviceArrivedEventArgs e)
+    {
+        UsbDevice dev = e.Device;
+            
+        /* Ignore it if it's not a NintendoSDK device. */
+        if (dev.ProductId == SdkProductId || dev.VendorId == SdkVendorId)
+        {
+            /* Grab device info. */
+            var (targ, isNew) = await CreateTargetAsyncUnsafe(dev);
+            if (targ == null)
+                return;
+
+            /* Notify the manager. */
+            var info = targ.Info;
+            parent.NotifyDiscoveryEvent(info, true);
+
+            /* Save info the target info ourself. */
+            discoveryInfos[dev.LocationId] = info;
+
+            /* Destroy the target if it was a preexisting connection. */
+            if (isNew)
+            {
+                await targ.CloseAsync();
+                await targ.DisposeAsync();
+            }
+        }
+        else
+        {
+            dev.Dispose();
+        }
+    }
+
+    private async Task HandleDeviceUnplugged(DeviceLeftEventArgs e)
+    {
+        var devInfo = e.DeviceInfo.PortInfo;
+        if (!discoveryInfos.ContainsKey(devInfo))
+            return;
+            
+        /* Remove it. */
+        parent.NotifyDiscoveryEvent(discoveryInfos[devInfo], false);
+        discoveryInfos.Remove(devInfo);
     }
     
     private async Task HotplugWorker()
@@ -241,7 +345,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             DeviceEventArgs e;
             try
             {
-                e = await discoveryEvents.Reader.ReadAsync(discoveryCts.Token);
+                e = await hotplugEvents.Reader.ReadAsync(hotplugCts.Token);
             }
             catch (OperationCanceledException)
             {
@@ -250,39 +354,11 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             
             if (e is DeviceArrivedEventArgs)
             {
-                UsbDevice dev = (e as DeviceArrivedEventArgs).Device;
-            
-                /* Ignore it if it's not a NintendoSDK device. */
-                if (dev.ProductId == SdkProductId || dev.VendorId == SdkVendorId)
-                {
-                    /* Grab device info. */
-                    var (targ, isNew) = await CreateTargetAsyncUnsafe(dev);
-
-                    /* Notify the manager. */
-                    var info = targ.Info;
-                    parent.NotifyDiscoveryEvent(info, true);
-            
-                    /* Save info ourself. */
-                    discoveryInfos[dev.LocationId] = info;
-            
-                    /* Destroy the connection. */
-                    await targ.CloseAsync();
-                    await targ.DisposeAsync();
-                }
-                else
-                {
-                    dev.Dispose();
-                }
+                HandleDevicePlugged((DeviceArrivedEventArgs)e);
             }
             else if (e is DeviceLeftEventArgs)
             {
-                var devInfo =  (e as DeviceLeftEventArgs).DeviceInfo.PortInfo;
-                if (!discoveryInfos.ContainsKey(devInfo))
-                    return;
-            
-                /* Remove it. */
-                parent.NotifyDiscoveryEvent(discoveryInfos[devInfo], false);
-                discoveryInfos.Remove(devInfo);
+                await HandleDeviceUnplugged((DeviceLeftEventArgs)e);
             }
         }
 
@@ -292,17 +368,25 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     {
         //using var l = AsyncLockHolder.Enter(asyncLock);
         
-        /* Assert this? */
-        int id = child.GetUsbDeviceNumber();
+        /* Do nothing if it isn't registered. */
+        var id = child.UsbLocationId;
+        if (!connectedTargets.ContainsKey(id))
+            return;
+        
+        /* Remove it from our target list. */
         connectedTargets.Remove(id);
     }
 
     public void NotifyAbruptClose(UsbPacketManager child)
     {
         //using var l = AsyncLockHolder.Enter(asyncLock);
+        
+        /* Do nothing if it isn't registered. */
+        var id = child.UsbLocationId;
+        if (!connectedTargets.ContainsKey(id))
+            return;
 
         /* Notify the parent target. */
-        int id = child.GetUsbDeviceNumber();
         connectedTargets[id].NotifyAbruptClose();
     }
 }

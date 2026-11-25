@@ -33,7 +33,7 @@ public class Target : IDisposable, IAsyncDisposable
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
     
-    public TargetInfo Info { get; private set; }
+    public TargetInfo? Info { get; private set; }
     
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
     {
@@ -57,7 +57,7 @@ public class Target : IDisposable, IAsyncDisposable
         clientContexts   = new();
     }
 
-    public async Task InitializeAsync()
+    public async Task<bool> InitializeAsync()
     {
         /* Register services. */
         serviceManager.RegisterService(htcsService);
@@ -71,6 +71,9 @@ public class Target : IDisposable, IAsyncDisposable
         
         /* Get initial info. */
         Info = await packetManager.GetTargetInfo();
+
+        /* Success if info was read. */
+        return Info != null;
     }
 
     public void Dispose()

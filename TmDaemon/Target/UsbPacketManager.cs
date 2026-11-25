@@ -1,4 +1,6 @@
 using LibUsbDotNet;
+using LibUsbDotNet.Info;
+using LibUsbDotNet.LibUsb;
 using Test.Packet;
 using Test.Services;
 using Test.TargetManager;
@@ -152,13 +154,17 @@ public class UsbPacketManager : IPacketManager
 
     private SemaphoreSlim cancelSem = new(0);
 
-    public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
+    public LocationId UsbLocationId { get; init; }
+    
+    public UsbPacketManager(UsbDevice usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
-        usbIf          = usb;
+        usbIf          = new UsbInterface(usb);
         this.parent    = parent;
         managerService = new(serviceManager);
-        
+
+        UsbLocationId = usbIf.UsbLocationId;
+
         /* Register the manager service. */
         serviceManager.RegisterService(managerService);
         
@@ -181,17 +187,19 @@ public class UsbPacketManager : IPacketManager
         usbIf.Dispose();
     }
     
-    public async Task<TargetInfo> GetTargetInfo()
+    public async Task<TargetInfo?> GetTargetInfo()
     {
         /* Get the beacon packet. */
         BeaconPacket? pkt = await GetBeaconPacket();
+        if (pkt == null)
+            return null;
 
         /* Parse it. */
         string sn = pkt != null ? pkt.Value.SN : "Unknown";
         return new TargetInfo()
         {
             SerialNumber   = sn,
-            Address        = GetUsbDeviceNumber().ToString(),
+            Address        = UsbLocationId.ToString(),
             ConnectionType = "USB",
             Status         = isConnected ? TargetStatus.Connected : TargetStatus.Disconnected,
         };
@@ -258,21 +266,14 @@ public class UsbPacketManager : IPacketManager
     {
         /* Use cached packet if already cached. */
         if (beaconPacket != null)
-        {
             return beaconPacket;
-        }
 
         /* Send a query packet. */
         await SendBeaconTaskImplAsync(FinalizeServiceId);
         return beaconPacket;
     }
-
-    public int GetUsbDeviceNumber()
-    {
-        return usbIf.GetUsbDeviceNumber();
-    }
-
-    public async Task SendNormalTaskImplAsync(UInt32 serviceId)
+    
+    public async Task<bool> SendNormalTaskImplAsync(UInt32 serviceId)
     {
         /* Query via get info cmd. */
         var task = new NormalTask(serviceId, managerService);
@@ -280,9 +281,11 @@ public class UsbPacketManager : IPacketManager
         
         /* Wait for it to finish. */
         await task.WaitDoneAsync();
+        
+        return !task.IsCancelled;
     }
 
-    public async Task SendBeaconTaskImplAsync(UInt32 serviceId)
+    public async Task<bool> SendBeaconTaskImplAsync(UInt32 serviceId)
     {
         /* Query via get info cmd. */
         var task = new BeaconTask(serviceId, managerService);
@@ -290,19 +293,28 @@ public class UsbPacketManager : IPacketManager
         
         /* Wait for it to finish. */
         await task.WaitDoneAsync();
-
+        
+        /* Check if it was cancelled (due to disconnect). */
+        if (task.IsCancelled)
+        {
+            beaconPacket = null;
+            return false;
+        }
+        
         /* Parse the beacon packet. */
         string beaconStr = task.BeaconPacket.ReadString(0x300);
         if (beaconPacket == null)
         {
             beaconPacket = new BeaconPacket(beaconStr);
         }
-        
+
         /* Release the packet. */
         task.Dispose();
+        
+        return true;
     }
 
-    private async Task SendHostInfoPacketImplAsync(string info)
+    private async Task<bool> SendHostInfoPacketImplAsync(string info)
     {
         /* Setup task. */
         var task = new HostInfoTask(SendHostInfoServiceId, managerService, info);
@@ -310,6 +322,8 @@ public class UsbPacketManager : IPacketManager
         
         /* Wait for it to finish. */
         await task.WaitDoneAsync();
+
+        return !task.IsCancelled;
     }
 
     private void NotifyAbruptClose()

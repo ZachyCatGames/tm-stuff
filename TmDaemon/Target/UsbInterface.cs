@@ -1,4 +1,5 @@
 using LibUsbDotNet;
+using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 
@@ -9,10 +10,12 @@ public class UsbInterface : IDisposable
     private readonly UsbDevice         device;
     private readonly UsbEndpointWriter writer;
     private readonly UsbEndpointReader reader;
-
+    
     private int  timeout;
     private bool canceled;
     private Lock mutex;
+
+    public LocationId UsbLocationId => device.LocationId;
 
     public UsbInterface(UsbDevice dev)
     {

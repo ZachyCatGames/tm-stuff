@@ -52,6 +52,8 @@ public abstract class ServiceTask
     }
 
     public bool IsDone() => IsStarted && (task.IsCompleted || task.IsCanceled);
+    
+    public bool IsCancelled => IsStarted && task.IsCanceled;
 
     public void WaitDone() => task.Wait();
     

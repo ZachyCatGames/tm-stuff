@@ -10,6 +10,6 @@ public interface ITargetProvider
     
     public Task<Target.Target?> ConnectAsync(string serialNumber);
 
-    public void BeginTargetDiscovery();
-    public Task EndTargetDiscoveryAsync();
+    public void BeginTargetHotplug();
+    public Task EndTargetHotplug();
 }

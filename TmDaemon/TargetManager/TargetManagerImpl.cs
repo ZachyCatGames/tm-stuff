@@ -101,7 +101,7 @@ public class TargetManagerImpl : ITargetManager
         if (isFirst)
         {
             /* NOTE: this MUST not be done under the lock. */
-            providers.ForEach(p => p.BeginTargetDiscovery());
+            providers.ForEach(p => p.BeginTargetHotplug());
             isDiscoveryActive = true;
         }
         else
@@ -154,7 +154,7 @@ public class TargetManagerImpl : ITargetManager
         if (discoveryObservers.Count == 0)
         {
             foreach (var p in providers)
-                await p.EndTargetDiscoveryAsync();
+                await p.EndTargetHotplug();
             isDiscoveryActive = false;
         }
     }
