@@ -150,7 +150,7 @@ public class UsbPacketManager : IPacketManager
 
     private readonly ManagerService managerService;
 
-    private SemaphoreSlim cancelSem;
+    private SemaphoreSlim cancelSem = new(0);
 
     public UsbPacketManager(UsbInterface usb, ServiceManager mgr, UsbTargetProvider parent)
     {
@@ -349,9 +349,6 @@ public class UsbPacketManager : IPacketManager
 
     private async Task StopThreadsAsync()
     {
-        /* Create the cancellation semaphore. */
-        cancelSem = new(0);
-        
         /* Cancel current transfers. */
         await cancelSrc.CancelAsync();
         usbIf.Cancel();

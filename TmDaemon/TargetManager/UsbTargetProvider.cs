@@ -192,6 +192,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         
         /* Begin usb hotplug. */
         context.RegisterHotPlug();
+        
+        Console.WriteLine("here");
     }
 
     public void EndTargetDiscovery()
@@ -212,6 +214,13 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             UsbDevice dev = (e as DeviceArrivedEventArgs).Device;
             
+            /* Ignore it if it's not a NintendoSDK device. */
+            if (dev.ProductId != SdkProductId || dev.VendorId != SdkVendorId)
+            {
+                dev.Dispose();
+                return;
+            }
+            
             /* Grab device info. */
             var (targ, isNew) = CreateTargetAsyncUnsafe(dev).Result;
 
@@ -221,6 +230,10 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             
             /* Save info ourself. */
             discoveryInfos[dev.LocationId] = info;
+            
+            /* Destroy the connection. */
+            targ.CloseAsync().Wait();
+            targ.Dispose();
         }
         else if (e is DeviceLeftEventArgs)
         {

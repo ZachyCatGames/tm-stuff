@@ -16,7 +16,7 @@ public interface ITargetManager
     public Task<Target.Target?> GetTargetAsync(string serialNumber);
     
     public Task<(TargetResult, TargetEvent?)> GetTargetUpdateAsync(int contextId, CancellationToken cancelToken);
-    public Task<(TargetResult, TargetInfo?)> DiscoverTarget(int contextId, CancellationToken cancelToken);
+    public Task<(TargetResult, TargetInfo?)> DiscoverTargetAsync(int contextId, CancellationToken cancelToken);
 
     public void NotifyDiscoveryEvent(TargetInfo target, bool attached);
 }

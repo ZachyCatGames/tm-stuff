@@ -110,4 +110,29 @@ public class TargetManagerServiceImpl : TargetManagerService.TargetManagerServic
             Info      = info.Info
         };
     }
+
+    public override async Task<DiscoverTargetReply> DiscoverTarget(DiscoverTargetRequest request, ServerCallContext context)
+    {
+        TargetInfo? info = null;
+        TargetResult result;
+        try
+        {
+            (result, info) = await manager.DiscoverTargetAsync(request.ContextId, context.CancellationToken);
+        }
+        catch (OperationCanceledException e)
+        {
+            result = TargetResult.OperationCanceled;
+        }
+
+        if (info == null)
+        {
+            return new DiscoverTargetReply { Result = result };
+        }
+
+        return new DiscoverTargetReply
+        {
+            Result = result,
+            Info = info
+        };
+    }
 }

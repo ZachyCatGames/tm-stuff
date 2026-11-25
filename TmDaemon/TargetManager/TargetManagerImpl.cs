@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Test.Target;
 
 namespace Test.TargetManager;
@@ -46,9 +47,11 @@ public class TargetManagerImpl : ITargetManager
         using var l = await AsyncLockHolder.EnterAsync(targetEvLock);
         
         /* Add the event observer. */
+        Debug.Assert(ctx.TargetEventContext != null);
         this.targetEvCallbacks.Add(ctx.TargetEventContext);
         
         /* Send events for each currently registered target. */
+        Debug.Assert(this.targetEvCallbacks.Count >= 1);
         foreach (var targ in registeredInfo)
         {
             TargetEventType type = targ.Status == TargetStatus.Disconnected ? TargetEventType.Disconnected : TargetEventType.Connected;
@@ -58,14 +61,21 @@ public class TargetManagerImpl : ITargetManager
 
     private async Task InitializeDiscoveryContextImpl(TargetManagerClientContext ctx)
     {
-        using var loc = await AsyncLockHolder.EnterAsync(discoveryLock);
-        
-        /* Add the discovery observer. */
-        targetEvCallbacks.Add(ctx.TargetEventContext);
+        bool isFirst;
+        using (var l = await AsyncLockHolder.EnterAsync(discoveryLock))
+        {
+            /* Add the discovery observer. */
+            Debug.Assert(ctx.TargetDiscoveryContext != null);
+            this.discoveryObservers.Add(ctx.TargetDiscoveryContext);
+            Debug.Assert(this.discoveryObservers.Count >= 1);
+
+            isFirst = discoveryObservers.Count == 1;
+        }
         
         /* If this is the first, start discovery on all providers. */
-        if (discoveryObservers.Count == 1)
+        if (isFirst)
         {
+            /* NOTE: this MUST not be done under the lock. */
             providers.ForEach(p => p.BeginTargetDiscovery());
             isDiscoveryActive = true;
         }
@@ -263,9 +273,9 @@ public class TargetManagerImpl : ITargetManager
         return null;
     }
     
-    public async Task<(TargetResult, TargetInfo?)> DiscoverTarget(int contextId, CancellationToken cancelToken)
+    public async Task<(TargetResult, TargetInfo?)> DiscoverTargetAsync(int contextId, CancellationToken cancelToken)
     {
-        TargetManagerClientContext ctx;
+        TargetManagerClientContext? ctx;
         using (var l = await AsyncLockHolder.EnterAsync(discoveryLock))
         {
             if (!clientContexts.TryGetValue(contextId, out ctx))
@@ -273,6 +283,7 @@ public class TargetManagerImpl : ITargetManager
         }
         
         /* This context must have discovery enabled. */
+        Debug.Assert(ctx != null);
         if (!ctx.HasDiscovery)
             return (TargetResult.CtxOpNotEnabled, null);
         
