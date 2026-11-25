@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading.Channels;
 using Test.Target;
 
 namespace Test.TargetManager;
@@ -21,6 +22,10 @@ public class TargetManagerImpl : ITargetManager
     private readonly List<TargetInfo> discovered = new();
     private readonly SemaphoreSlim discoveryLock = new(1);
 
+    private readonly Task                    disconnectMonitor;
+    private readonly Channel<Target.Target>  disconnectTargets = Channel.CreateUnbounded<Target.Target>();
+    private readonly CancellationTokenSource disconnectTokenSource = new();
+    
     private async Task<TargetInfo> RegisterConnection(Target.Target targ)
     {
         /* Register the target. */
@@ -39,7 +44,27 @@ public class TargetManagerImpl : ITargetManager
         /* Create providers for USB and TICS (TODO). */
         this.providers.Add(new UsbTargetProvider(this));
         
+        /* Start the disconnect monitor. */
+        disconnectMonitor = DisconnectMonitor();
+
         /* TODO: Fill out registered list. */
+    }
+    
+    private async Task DisconnectMonitor()
+    {
+        /* Wait for a disconnect. */
+        Target.Target target;
+        try
+        {
+            target = await disconnectTargets.Reader.ReadAsync(disconnectTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        
+        /* Disconnect. */
+        await this.DisconnectTargetAsync(target);
     }
 
     private async Task InitializeEventContextImpl(TargetManagerClientContext ctx)
@@ -128,7 +153,8 @@ public class TargetManagerImpl : ITargetManager
         /* If this was the last observer, stop discovery. */
         if (discoveryObservers.Count == 0)
         {
-            providers.ForEach(p => p.EndTargetDiscovery());
+            foreach (var p in providers)
+                await p.EndTargetDiscoveryAsync();
             isDiscoveryActive = false;
         }
     }
@@ -320,5 +346,7 @@ public class TargetManagerImpl : ITargetManager
 
         return infos;
     }
-    
+
+    public void NotifyAbruptDisconnectEvent(Target.Target target) => disconnectTargets.Writer.TryWrite(target);
+
 }

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Threading.Channels;
 using LibUsbDotNet;
 using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
@@ -19,6 +21,9 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private UsbContext context;
 
+    private Task? hotplugMonitor;
+    private CancellationTokenSource? discoveryCts;
+    private readonly Channel<DeviceEventArgs> discoveryEvents = Channel.CreateUnbounded<DeviceEventArgs>();
     private readonly Dictionary<LocationId, TargetInfo> discoveryInfos = new();
 
     public UsbTargetProvider(ITargetManager parent)
@@ -184,11 +189,18 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     public void BeginTargetDiscovery()
     {
+        Debug.Assert(hotplugMonitor == null);
+        Debug.Assert(discoveryCts == null);
+        
         if (context.IsUsingHotplug)
             return;
 
         /* Register an event listener. */
         context.DeviceEvent += HotplugCallback;
+        
+        /* Start the hotplug monitor. */
+        discoveryCts = new();
+        hotplugMonitor = HotplugWorker();
         
         /* Begin usb hotplug. */
         context.RegisterHotPlug();
@@ -196,55 +208,84 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         Console.WriteLine("here");
     }
 
-    public void EndTargetDiscovery()
+    public async Task EndTargetDiscoveryAsync()
     {
+        Debug.Assert(discoveryCts != null);
+        Debug.Assert(hotplugMonitor != null);
+        
         /* Stop hotplug. */
         context.UnregisterHotPlug();
+        
+        /* Signal that we're done. */
+        await discoveryCts.CancelAsync();
+        await hotplugMonitor;
         
         /* Remove ourself as an event listen. */
         context.DeviceEvent -= HotplugCallback;
         
-        /* Clear discovery dict. */
+        /* Cleanup. */
         discoveryInfos.Clear();
+        discoveryCts = null;
+        hotplugMonitor = null;
     }
 
     private void HotplugCallback(object? sender, DeviceEventArgs e)
     {
-        if (e is DeviceArrivedEventArgs)
+        discoveryEvents.Writer.TryWrite(e);
+    }
+    
+    private async Task HotplugWorker()
+    {
+        while (true)
         {
-            UsbDevice dev = (e as DeviceArrivedEventArgs).Device;
-            
-            /* Ignore it if it's not a NintendoSDK device. */
-            if (dev.ProductId != SdkProductId || dev.VendorId != SdkVendorId)
+            DeviceEventArgs e;
+            try
             {
-                dev.Dispose();
+                e = await discoveryEvents.Reader.ReadAsync(discoveryCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
                 return;
             }
             
-            /* Grab device info. */
-            var (targ, isNew) = CreateTargetAsyncUnsafe(dev).Result;
+            if (e is DeviceArrivedEventArgs)
+            {
+                UsbDevice dev = (e as DeviceArrivedEventArgs).Device;
+            
+                /* Ignore it if it's not a NintendoSDK device. */
+                if (dev.ProductId == SdkProductId || dev.VendorId == SdkVendorId)
+                {
+                    /* Grab device info. */
+                    var (targ, isNew) = await CreateTargetAsyncUnsafe(dev);
 
-            /* Notify the manager. */
-            var info = targ.Info;
-            parent.NotifyDiscoveryEvent(info, true);
+                    /* Notify the manager. */
+                    var info = targ.Info;
+                    parent.NotifyDiscoveryEvent(info, true);
             
-            /* Save info ourself. */
-            discoveryInfos[dev.LocationId] = info;
+                    /* Save info ourself. */
+                    discoveryInfos[dev.LocationId] = info;
             
-            /* Destroy the connection. */
-            targ.CloseAsync().Wait();
-            targ.Dispose();
+                    /* Destroy the connection. */
+                    await targ.CloseAsync();
+                    await targ.DisposeAsync();
+                }
+                else
+                {
+                    dev.Dispose();
+                }
+            }
+            else if (e is DeviceLeftEventArgs)
+            {
+                var devInfo =  (e as DeviceLeftEventArgs).DeviceInfo.PortInfo;
+                if (!discoveryInfos.ContainsKey(devInfo))
+                    return;
+            
+                /* Remove it. */
+                parent.NotifyDiscoveryEvent(discoveryInfos[devInfo], false);
+                discoveryInfos.Remove(devInfo);
+            }
         }
-        else if (e is DeviceLeftEventArgs)
-        {
-            var devInfo =  (e as DeviceLeftEventArgs).DeviceInfo.PortInfo;
-            if (!discoveryInfos.ContainsKey(devInfo))
-                return;
-            
-            /* Remove it. */
-            parent.NotifyDiscoveryEvent(discoveryInfos[devInfo], false);
-            discoveryInfos.Remove(devInfo);
-        }
+
     }
 
     public void NotifyClose(UsbPacketManager child)

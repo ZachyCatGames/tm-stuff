@@ -11,5 +11,5 @@ public interface ITargetProvider
     public Task<Target.Target?> ConnectAsync(string serialNumber);
 
     public void BeginTargetDiscovery();
-    public void EndTargetDiscovery();
+    public Task EndTargetDiscoveryAsync();
 }

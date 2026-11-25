@@ -32,10 +32,6 @@ public class Target : IDisposable, IAsyncDisposable
     
     private int currentContextId;
     private readonly Dictionary<int, TargetClientContext> clientContexts;
-
-    private          Task                    disconnectMonitor;
-    private readonly SemaphoreSlim           disconnectSignal      = new(0);
-    private readonly CancellationTokenSource disconnectTokenSource = new();
     
     public TargetInfo Info { get; private set; }
     
@@ -75,37 +71,23 @@ public class Target : IDisposable, IAsyncDisposable
         
         /* Get initial info. */
         Info = await packetManager.GetTargetInfo();
-        
-        /* Run abrupt disconnect monitor. */
-        disconnectMonitor = DisconnectMonitor();
-    }
-
-    private async Task DisconnectMonitor()
-    {
-        /* Wait for a disconnect. */
-        try
-        {
-            await disconnectSignal.WaitAsync(disconnectTokenSource.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        
-        /* Disconnect. */
-        await DisconnectAsync();
     }
 
     public void Dispose()
     {
         //CloseAsync().Wait();
         packetManager.Dispose();
+        
+        /* Finalize the file manager. */
+        hostfsManager.Dispose();
+        
+        /* Finalize the htcs socket manager. */
+        htcsManager.Dispose();
     }
 
     public async ValueTask DisposeAsync()
     {
-        //await CloseAsync();
-        packetManager.Dispose();
+        this.Dispose();
     }
 
     public AsyncLockHolder AcquireLock() =>  AsyncLockHolder.Enter(asyncLock);
@@ -123,9 +105,6 @@ public class Target : IDisposable, IAsyncDisposable
 
     private void DisconnectUnsafe()
     {
-        /* Cancel the abrupt disconnect monitor. */
-        disconnectTokenSource.Cancel();
-        
         /* Do nothing if already disconnected. */
         if (Info.Status == TargetStatus.Disconnected)
             return;
@@ -142,12 +121,6 @@ public class Target : IDisposable, IAsyncDisposable
         {
             ctx.Cancel();
         }
-        
-        /* Finalize the file manager. */
-        hostfsManager.Dispose();
-        
-        /* Finalize the htcs socket manager. */
-        htcsManager.Dispose();
         
         /* Update our status to disconnected. */
         Info.Status = TargetStatus.Disconnected;
@@ -190,9 +163,6 @@ public class Target : IDisposable, IAsyncDisposable
     
     private async Task CloseAsyncUnsafe()
     {
-        /* Cancel the abrupt disconnect monitor. */
-        disconnectTokenSource.Cancel();
-        
         /* Call close on the packet manager. */
         await packetManager.CloseAsync();
 
@@ -298,6 +268,6 @@ public class Target : IDisposable, IAsyncDisposable
     {
         return packetManager;
     }
-    
-    public void NotifyAbruptClose() => disconnectSignal.Release();
+
+    public void NotifyAbruptClose() => parent.NotifyAbruptDisconnectEvent(this);
 }

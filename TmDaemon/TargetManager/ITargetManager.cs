@@ -19,4 +19,5 @@ public interface ITargetManager
     public Task<(TargetResult, TargetInfo?)> DiscoverTargetAsync(int contextId, CancellationToken cancelToken);
 
     public void NotifyDiscoveryEvent(TargetInfo target, bool attached);
+    public void NotifyAbruptDisconnectEvent(Target.Target target);
 }
