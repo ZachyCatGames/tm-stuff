@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Test.Packet;
+namespace Test.Packets;
 
 using static System.Runtime.InteropServices.Marshal;
 

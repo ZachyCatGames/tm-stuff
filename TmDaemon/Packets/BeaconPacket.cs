@@ -1,4 +1,4 @@
-namespace Test.Packet;
+namespace Test.Packets;
 
 public struct BeaconPacket
 {

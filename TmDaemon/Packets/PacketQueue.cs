@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Test.Packet;
+namespace Test.Packets;
 
 public class PacketQueue
 {
@@ -73,4 +73,6 @@ public class PacketQueue
         addSem.Release();
         return it;
     }
+    
+    public int Count => queue.Count;
 }

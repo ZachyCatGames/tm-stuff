@@ -1,7 +1,7 @@
 using System.Text;
 using Test.Services;
 
-namespace Test.Packet;
+namespace Test.Packets;
 
 public class Packet
 {
