@@ -153,6 +153,15 @@ public class Packet
         return str;
     }
 
+    public void Write(string s)
+    {
+        var bytes = Encoding.UTF8.GetBytes(s);
+        bytes.CopyTo(buffer, bufferPos);
+        Write(false); // write 0
+        
+        bufferPos += bytes.Length + 1;
+    }
+
     public ArraySegment<byte> Read(int c)
     {
         var off  = bufferPos - HeaderSize;
