@@ -9,7 +9,7 @@ public class HostEnvService : ServiceBase
     public HostEnvService(ServiceManager mgr) : base(serviceId, mgr)
     {}
 
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         Console.WriteLine("Here");
         pkt.Print();

@@ -12,18 +12,18 @@ public class HostEnvGetVarTask : ServiceTask
     protected override async Task Run()
     {
         /* Get packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
         
         Console.WriteLine("[env] GetEnvVar");
         
         /* Parse the packet. */
-        string varName = pkt.ReadString(Packet.Packet.DataMaxSize);
+        string varName = pkt.ReadString(Packets.Packet.DataMaxSize);
         
         /* Get the env var. */
         string? varValue = HostEnvManager.GetEnvironmentVariable(varName);
         
         /* Setup a reply. */
-        Packet.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
 
         /* Check if a var was found. */
