@@ -82,7 +82,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         }
         catch (UsbException e)
         {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
             device.Dispose();
             return (null, false);
         }
@@ -104,7 +104,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         }
         catch (Exception e)
         {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
             await pktMgr.CloseAsync();
             pktMgr.Dispose();
             return (null, false);
@@ -122,7 +122,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         }
         catch (Exception e)
         {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {}", e);
+            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
         }
 
         if (!success)

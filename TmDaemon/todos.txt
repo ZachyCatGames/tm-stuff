@@ -14,3 +14,7 @@
 
 - how the fuck should discovery in tics work???
     - on that note, tics is horribly outdated
+
+- need workaround for packet limit on resume
+
+- I'm getting host BCID shit wrong

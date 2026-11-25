@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LibUsbDotNet;
 using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
@@ -117,27 +118,26 @@ public class UsbPacketManager : IPacketManager
         {
             /* Setup the packet. */
             Packets.Packet pkt = await AllocSendPacketAsync();
-            pkt.Reset();
             pkt.serviceId = serviceId;
             pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
             pkt.isInitiate = false;
             pkt.taskType = TaskType.Invalid;
+            pkt.Write((UInt32)(info.Length + 1));
             pkt.Write(info);
-            pkt.WriteHeader();
             
             /* Send the packet. */
             await SendPacketAsync(pkt);
         }
     }
     
-    private readonly Thread sendThread;
-    private readonly Thread recvThread;
+    private Thread sendThread;
+    private Thread recvThread;
 
     private readonly UsbTargetProvider parent;
     
     private readonly ServiceManager serviceManager;
 
-    private readonly UsbInterface usbIf;
+    private UsbInterface usbIf;
 
     private BeaconPacket? beaconPacket;
     
@@ -154,6 +154,8 @@ public class UsbPacketManager : IPacketManager
 
     public LocationId UsbLocationId { get; init; }
     
+    public bool IsSupended { get; private set; }
+    
     public UsbPacketManager(UsbDevice usb, ServiceManager mgr, UsbTargetProvider parent)
     {
         serviceManager = mgr;
@@ -165,24 +167,28 @@ public class UsbPacketManager : IPacketManager
 
         /* Register the manager service. */
         serviceManager.RegisterService(managerService);
-        
-        sendThread = new Thread(SendThread);
-        recvThread = new Thread(RecvThread);
 
         beaconPacket    = null;
         isConnected     = false;
         
         /* Start the send and receive threads. */
-        sendThread.Start();
-        Console.WriteLine("Started USB send thread");
-        recvThread.Start();
-        Console.WriteLine("Started USB recv thread");
+        this.StartWorkThreads();
     }
 
     public void Dispose()
     {
         /* Dispose the USB Interface. */
         usbIf.Dispose();
+    }
+
+    public void StartWorkThreads()
+    {
+        this.sendThread = new Thread(SendThread);
+        this.recvThread = new Thread(RecvThread);
+        this.sendThread.Start();
+        Console.WriteLine("Started USB send thread");
+        this.recvThread.Start();
+        Console.WriteLine("Started USB recv thread");
     }
     
     public async Task<TargetInfo?> GetTargetInfo()
@@ -205,11 +211,8 @@ public class UsbPacketManager : IPacketManager
 
     public async Task ConnectAsync()
     {
-        /* Send QueryInfo. */
+        /* Cancel any ongoing tasks. */
         await SendBeaconTaskImplAsync(FinalizeServiceId);
-        
-        /* Send host info. */
-        await SendHostInfoPacketImplAsync("BCID: 96\nPS: 0\n");
         
         /* Actually connect. */
         await ReconnectAsync();
@@ -217,6 +220,9 @@ public class UsbPacketManager : IPacketManager
 
     public async Task ReconnectAsync()
     {
+        /* Send host info. */
+        await SendHostInfoPacketImplAsync("\nBCID: 96\nPS: 0\n");
+        
         /* Do nothing if we're already connected. */
         if (isConnected)
             return;
@@ -226,6 +232,30 @@ public class UsbPacketManager : IPacketManager
         
         /* We're now connected. */
         isConnected = true;
+    }
+
+    public async Task NotifySuspendAsync()
+    {
+        /* Indicate we're suspended. */
+        IsSupended = true;
+        
+        /* Stop the send and receive thread. */
+        await this.StopThreadsAsync();
+        
+        /* Destroy our usb interface. */
+        this.usbIf.Dispose();
+    }
+    
+    public async Task NotifyResumeAsync(object obj)
+    {
+        Debug.Assert(obj is UsbDevice);
+        UsbDevice dev = (UsbDevice)obj;
+        
+        /* Update our usb interface. */
+        this.usbIf = new UsbInterface(dev);
+        
+        /* Start the work threads. */
+        this.StartWorkThreads();
     }
 
     public async Task DisconnectImplAsync(bool sendDcPkt)

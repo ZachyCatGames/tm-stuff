@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using Test.Services.powermanagement;
 using Test.Target;
 
 namespace Test.TargetManager;
@@ -349,4 +350,15 @@ public class TargetManagerImpl : ITargetManager
 
     public void NotifyAbruptDisconnectEvent(Target.Target target) => disconnectTargets.Writer.TryWrite(target);
 
+    public void NotifyTargetSuspending(Target.Target target)
+    {
+        /* Notify all event observers. */
+        this.targetEvCallbacks.ForEach(x => x.OnNext(new TargetEvent(target.Info, TargetEventType.Suspended)));
+    }
+
+    public void NotifyTargetPmTransition(Target.Target target, TargetEventType trans)
+    {
+        /* Notify all event observers. */
+        this.targetEvCallbacks.ForEach(x => x.OnNext(new TargetEvent(target.Info, trans)));
+    }
 }

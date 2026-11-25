@@ -157,9 +157,8 @@ public class Packet
     {
         var bytes = Encoding.UTF8.GetBytes(s);
         bytes.CopyTo(buffer, bufferPos);
-        Write(false); // write 0
-        
         bufferPos += bytes.Length + 1;
+        Write((byte)0); // write 0
     }
 
     public ArraySegment<byte> Read(int c)

@@ -76,6 +76,16 @@ public class TicsPacketManager : IPacketManager
         throw new NotImplementedException();
     }
 
+    public Task NotifyResumeAsync(object obj)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task NotifySuspendAsync()
+    {
+        throw new NotImplementedException();
+    }
+
     public async Task<BeaconPacket?> GetBeaconPacket()
     {
         return new BeaconPacket("");

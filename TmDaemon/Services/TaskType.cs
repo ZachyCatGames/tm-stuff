@@ -48,5 +48,5 @@ public enum TaskType : ushort
     
     PmSuspend               = 0x2C,
     
-    PmStateChange           = 0x5C,
+    PmStateChange           = 0x56,
 }

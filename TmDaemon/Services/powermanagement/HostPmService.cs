@@ -6,15 +6,16 @@ public class HostPmService : ServiceBase
 {
     public const UInt32 ServiceId = 0xCC11BCFD;
     
-    private readonly IObserver<PmState> stateObserver;
+    private readonly IPmObserver stateObserver;
 
     private readonly bool supportsStateChangeEv;
 
     private readonly SemaphoreSlim prepDoneEv = new(0);
-    private PmState curState = PmState.Invalid;
+    private PmState curState = PmState.FullAwake;
+    private PmState prevState = PmState.FullAwake;
     private bool inProgress = false;
     
-    public HostPmService(ServiceManager srvMgr, IObserver<PmState> observer, bool supportsStateChangeEv) : base(ServiceId, srvMgr)
+    public HostPmService(ServiceManager srvMgr, IPmObserver observer, bool supportsStateChangeEv) : base(ServiceId, srvMgr)
     {
         this.stateObserver = observer;
         this.supportsStateChangeEv = supportsStateChangeEv;
@@ -37,7 +38,7 @@ public class HostPmService : ServiceBase
 
     public override ServiceTask? ProcessNewRequest(Packet pkt)
     {
-        Console.WriteLine("PM Request");
+        Console.WriteLine("[pm] Request");
         pkt.Print();
         
         switch (pkt.taskType)
@@ -46,9 +47,18 @@ public class HostPmService : ServiceBase
                 /* Send a suspend notification if the target doesn't support state change events. */
                 if (!supportsStateChangeEv)
                 {
+                    /* Emulate modern PmStateChange behavior by sending MinimumAwake + SleepReady. */
                     inProgress = true;
+                    prevState = curState;
+                    curState = PmState.MinimumAwake;
+                    stateObserver.Notify(this.GetTransition());
+                    prevState = curState;
                     curState = PmState.SleepReady;
-                    stateObserver.OnNext(curState);
+                    stateObserver.Notify(this.GetTransition());
+                }
+                else
+                {
+                    this.prepDoneEv.Release();
                 }
                 break;
             case TaskType.PmStateChange:
@@ -57,14 +67,29 @@ public class HostPmService : ServiceBase
                 {
                     inProgress = true;
                     pkt.Read(out int state);
+                    prevState = curState;
                     curState = (PmState)state;
-                    stateObserver.OnNext(curState);
+                    stateObserver.Notify(this.GetTransition());
+                }
+                else
+                {
+                    this.prepDoneEv.Release();
                 }
                 break;
             default:
                 return null;
         }
-        
+        Console.WriteLine("[pm] new state = {0}", curState);
         return new PmTask(this, pkt.taskType, pkt.taskId, prepDoneEv);
+    }
+
+    private TargetEventType GetTransition()
+    {
+        if (prevState == PmState.FullAwake && curState == PmState.MinimumAwake)
+            return TargetEventType.Suspending;
+        if (curState == PmState.SleepReady)
+            return TargetEventType.Suspended;
+
+        return TargetEventType.Unknown;
     }
 }

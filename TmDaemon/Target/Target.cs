@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Test.htcs;
 using Test.Services;
 using Test.Services.dbg;
@@ -11,7 +12,7 @@ namespace Test.Target;
 
 public class Target : IDisposable, IAsyncDisposable
 {
-    private class TargetPmObserver : IObserver<PmState>
+    private class TargetPmObserver : IPmObserver
     {
         private readonly Target parent;
 
@@ -20,9 +21,7 @@ public class Target : IDisposable, IAsyncDisposable
             this.parent = target;
         }
 
-        public void OnNext(PmState value) => this.parent.OnPmStateChanged(value);
-        public void OnError(Exception error) {}
-        public void OnCompleted() {}
+        public Task Notify(TargetEventType trans) => this.parent.OnPmStateChanged(trans);
     }
     
     private readonly ITargetManager parent;
@@ -51,9 +50,22 @@ public class Target : IDisposable, IAsyncDisposable
     
     public TargetInfo? Info { get; private set; }
 
-    private void OnPmStateChanged(PmState state)
+    private async Task OnPmStateChanged(TargetEventType trans)
     {
+        /* Notify our parent manager. */
+        this.parent.NotifyTargetPmTransition(this, trans);
         
+        switch (trans)
+        {
+            case TargetEventType.Suspended:
+                /* Prepare for sleep time :) */
+                await this.OnSuspend();
+                break;
+            default:
+                break;
+        }
+        
+        pmService.NotifyPrepDone();
     }
     
     public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
@@ -209,6 +221,25 @@ public class Target : IDisposable, IAsyncDisposable
     {
         using var l = await AcquireLockAsync();
         await CloseAsyncUnsafe();
+    }
+
+    public async Task OnSuspend()
+    {
+        /* Do nothing if already suspended/suspending. */
+        Debug.Assert(this.Info != null);
+        if (this.Info.Status == TargetStatus.Asleep)
+            return;
+        
+        /* Tag ourself as suspended. */
+        this.Info.Status = TargetStatus.Asleep;
+        
+        /* Notify our packet manager. */
+        await packetManager.NotifySuspendAsync();
+    }
+
+    public async Task OnResume()
+    {
+        
     }
 
     public async Task<int> InitializeClientContext(UInt64 flags)

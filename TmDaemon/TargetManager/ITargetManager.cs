@@ -1,3 +1,4 @@
+using Test.Services.powermanagement;
 using Test.Target;
 
 namespace Test.TargetManager;
@@ -20,4 +21,6 @@ public interface ITargetManager
 
     public void NotifyDiscoveryEvent(TargetInfo target, bool attached);
     public void NotifyAbruptDisconnectEvent(Target.Target target);
+
+    public void NotifyTargetPmTransition(Target.Target target, TargetEventType trans);
 }
