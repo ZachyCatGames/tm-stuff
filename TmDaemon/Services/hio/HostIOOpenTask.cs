@@ -1,0 +1,55 @@
+
+
+namespace Test.Services.hio;
+
+public class HostIOOpenTask : ServiceTask
+{
+    HostFilesystemManager mgr;
+    
+    public HostIOOpenTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.OpenFile, taskId, 0)
+    {
+        this.mgr = mgr;
+    }
+    
+    protected override async Task Run()
+    {
+        /* Get the packet. */
+        Packet.Packet pkt = await WaitForPacket();
+        
+        /* Parse the packet. */
+        pkt.Read(out Int64 inFd);
+        string path = pkt.ReadString(0x301);
+        pkt.Read(out UInt32 mode);
+        pkt.Release();
+        
+        Console.WriteLine("[hio] Opening file {0}", path);
+        
+        /* Try to open the file. */
+        Int64 fd = -1;
+        HioErrorCode err = HioErrorCode.SuccessEnd;
+        try
+        {
+            fd = mgr.OpenFile(path, mode);
+        }
+        catch (HioException excpt)
+        {
+            err = excpt.error;
+        }
+        catch (Exception excpt)
+        {
+            Console.WriteLine(excpt);
+        }
+        
+        /* Setup a reply. */
+        Packet.Packet reply = await AllocSendPacketAsync();
+        reply.isInitiate = false;
+        reply.Write(fd);
+        reply.Write((UInt32)err);
+        reply.Write((UInt64)0);
+        reply.WriteHeader();
+        reply.Print();
+        
+        /* Send the reply. */
+        await SendPacketAsync(reply);
+    }
+}

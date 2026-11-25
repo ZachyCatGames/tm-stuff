@@ -1,0 +1,76 @@
+using System.Collections.Concurrent;
+
+namespace Test.Packet;
+
+public class PacketQueue
+{
+    private readonly BlockingCollection<Packet> queue;
+    
+    private readonly SemaphoreSlim addSem;
+    private readonly SemaphoreSlim takeSem;
+    
+    public PacketQueue(int max)
+    {
+        queue   = new(max);
+        addSem  = new(max);
+        takeSem = new(0);
+    }
+    
+    public int GetFreeCount()
+    {
+        return queue.Count();
+    }
+    
+    public void Add(Packet pkt)
+    {
+        addSem.Wait();
+        queue.Add(pkt);
+        takeSem.Release();
+    }
+    
+    public async Task AddAsync(Packet pkt)
+    {
+        await addSem.WaitAsync();
+        queue.Add(pkt);
+        takeSem.Release();
+    }
+
+    public async Task AddAsync(Packet pkt, CancellationToken can)
+    {
+        await addSem.WaitAsync(can);
+        queue.Add(pkt);
+        takeSem.Release();
+    }
+    
+    public Packet Take()
+    {
+        takeSem.Wait();
+        var it = queue.Take();
+        addSem.Release();
+        return it;
+    }
+    
+    public Packet Take(CancellationToken can)
+    {
+        takeSem.Wait(can);
+        var it = queue.Take();
+        addSem.Release();
+        return it;
+    }
+    
+    public async Task<Packet> TakeAsync()
+    {
+        await takeSem.WaitAsync();
+        var it = queue.Take();
+        addSem.Release();
+        return it;
+    }
+
+    public async Task<Packet> TakeAsync(CancellationToken can)
+    {
+        await takeSem.WaitAsync(can);
+        var it = queue.Take();
+        addSem.Release();
+        return it;
+    }
+}

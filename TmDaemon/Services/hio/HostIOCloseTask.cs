@@ -1,0 +1,46 @@
+
+
+namespace Test.Services.hio;
+
+class HostIOCloseTask : ServiceTask
+{
+    HostFilesystemManager mgr;
+    
+    public HostIOCloseTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CloseFile, taskId, 0)
+    {
+        this.mgr = mgr;
+    }
+    
+    protected override async Task Run()
+    {
+        /* Get the packet. */
+        Packet.Packet pkt = await WaitForPacket();
+        
+        /* Parse the packet. */
+        pkt.Read(out Int64 fd);
+        pkt.Release();
+        
+        /* Try to close the file. */
+        var result = HioErrorCode.SuccessEnd;
+        try
+        {
+            mgr.CloseFile((int)fd);
+        }
+        catch (HioException excpt)
+        {
+            result = excpt.error;
+        }
+        
+        /* Setup a reply. */
+        Packet.Packet reply = await AllocSendPacketAsync();
+        reply.isInitiate = false;
+        reply.Write(fd);
+        reply.Write((UInt32)result);
+        reply.Write((UInt64)0); // unused
+        reply.WriteHeader();
+        reply.Print();
+        
+        /* Send it. */
+        await SendPacketAsync(reply);
+    }
+}

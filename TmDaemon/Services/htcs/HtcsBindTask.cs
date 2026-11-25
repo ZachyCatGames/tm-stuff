@@ -1,0 +1,59 @@
+namespace Test.Services.htcs;
+
+public class HtcsBindTask : ServiceTask
+{
+    HtcsSocketManager htcsManager;
+    public HtcsBindTask(IService parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Bind, taskId, 0)
+    {
+        this.htcsManager = manager;
+    }
+
+    protected override async Task Run()
+    {
+        /* Receive info packet. */
+        Packet.Packet pkt = await WaitForPacket();
+
+        /* Parse the packet. */
+        pkt.Read(out Int32 fd);
+        var bs = pkt.Read(SockAddrHtcs.PackedSize);
+        Console.WriteLine(BitConverter.ToString(bs.Array));
+        var addr = SockAddrHtcs.FromBytes(bs);
+        pkt.Release();
+
+#if HTCS_TASK_DEBUG
+        Console.WriteLine("[htcs] Bind on fd={0}\n" +
+            "\tPort Name: {1}\n" +
+            "\tPeer Name: {2}", fd, addr.portName, addr.peerName);
+#endif
+
+        /* Bind the socket. */
+        Int32 result = 0;
+        Int32 retval = 0;
+        try
+        {
+            htcsManager.Bind(fd, addr);
+        }
+        catch (HtcsException excpt)
+        {
+            result = ResultConversion.HtcsToTmipc(excpt.error);
+            retval = -1;
+        }
+
+#if HTCS_TASK_DEBUG
+        Console.WriteLine("[htcs] Bind res = {0}", retval);
+#endif
+
+        /* Allocate a reply packet. */
+        var reply = await AllocSendPacketAsync();
+
+        /* Setup our reply. */
+        reply.isInitiate = false;
+        reply.Write(fd); // I think these are the same?
+        reply.Write(retval);
+        reply.Write(result);
+        reply.WriteHeader();
+
+        /* Send it off. */
+        await SendPacketAsync(reply);
+    }
+}

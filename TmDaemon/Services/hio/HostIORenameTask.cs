@@ -1,0 +1,50 @@
+
+
+namespace Test.Services.hio;
+
+public class HostIORenameTask : ServiceTask
+{
+    HostFilesystemManager mgr;
+    
+    public HostIORenameTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.RenameFile, taskId, 0)
+    {
+        this.mgr = mgr;
+    }
+    
+    protected override async Task Run()
+    {
+        /* Get the packet. */
+        Packet.Packet pkt = await WaitForPacket();
+
+        /* Parse the packet. */
+        pkt.Read(out Int64 fd);
+        string src = pkt.ReadString(0x301);
+        string dst = pkt.ReadString(0x301);
+        pkt.Release();
+
+        Console.WriteLine("[hio] RenameFile, src={0}, dst={1}", src, dst);
+
+        /* Try to rename the file. */
+        HioErrorCode err = HioErrorCode.SuccessEnd;
+        try
+        {
+            mgr.RenameFile(src, dst);
+        }
+        catch (HioException excpt)
+        {
+            err = excpt.error;
+        }
+
+        /* Setup a reply. */
+        Packet.Packet reply = await AllocSendPacketAsync();
+        reply.isInitiate = false;
+        reply.Write(fd);
+        reply.Write((UInt32)err);
+        reply.Write((UInt64)0); // unused
+        reply.WriteHeader();
+        reply.Print();
+
+        /* Send the reply. */
+        await SendPacketAsync(reply);
+    }
+}

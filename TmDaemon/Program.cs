@@ -11,10 +11,10 @@ using LibUsbDotNet.Main;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Test;
-using Test.env;
-using Test.hio;
 using Test.htcs;
-using Test.test;
+using Test.Packet;
+using Test.Target;
+using Test.TargetManager;
 using static System.Console;
 
 var b = new BeaconPacket("");

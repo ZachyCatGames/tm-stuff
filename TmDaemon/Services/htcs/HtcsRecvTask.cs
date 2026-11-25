@@ -1,0 +1,87 @@
+namespace Test.Services.htcs;
+
+public class HtcsRecvTask : ServiceTask
+{
+    HtcsSocketManager htcsManager;
+    public HtcsRecvTask(IService parent, HtcsSocketManager manager, uint taskId) : base(parent, TaskType.Recv, taskId, 0)
+    {
+        this.htcsManager = manager;
+    }
+
+    async Task Process()
+    {
+        /* Receive info packet. */
+        Packet.Packet pkt = await WaitForPacket();
+
+        pkt.Read(out int fd);
+        pkt.Read(out Int64 remaining);
+        pkt.Read(out int flags);
+
+        /* Release the packet. */
+        pkt.Release();
+
+#if HTCS_TASK_DEBUG
+        Console.WriteLine("[htcs] recv: size={0}", remaining);
+#endif
+
+        while (remaining > 0)
+        {
+            /* Allocate a send packet. */
+            var reply = await AllocSendPacketAsync();
+
+            /* Get data buffer. */
+            Int64 curSize = Math.Min(remaining, Packet.Packet.DataMaxSize - 0xD);
+            var buf = reply.GetDataBuffer(0xD, (int)curSize);
+
+            /* Receive a packet from the host socket. */
+            Int32 result = 0;
+            Int32 retval = 0;
+            try
+            {
+                retval = await htcsManager.RecvPacketAsync(fd, buf, flags, GetCancelToken());
+            }
+            catch (HtcsException excpt)
+            {
+                Console.WriteLine(excpt.error);
+                result = ResultConversion.HtcsToTmipc(excpt.error);
+                retval = -1;
+            }
+
+            Int32 readSize, errorRetCode;
+            if (retval < 0)
+            {
+                readSize = 0;
+                errorRetCode = -1;
+                result = 1;
+            }
+            else
+            {
+                readSize = retval;
+                errorRetCode = 0;
+                result = 0;
+            }
+
+            bool last = curSize == remaining;
+
+            /* Setup the packet. */
+            reply.isInitiate = false;
+            reply.Write((Int32)curSize); // TODO: nonblocking
+            reply.Write(errorRetCode);
+            reply.Write(result);
+            reply.Write(last);
+            reply.AdvancePosition(readSize);
+            reply.WriteHeader();
+
+            /* Send the packet to the device. */
+            await SendPacketAsync(reply);
+
+            /* Decrement remaining. */
+            remaining -= curSize;
+        }
+    }
+
+    protected override Task Run()
+    {
+        return this.Process();
+    }
+}
