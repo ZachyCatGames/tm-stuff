@@ -41,6 +41,7 @@ public class TaskList
 
     public void ForEach(Action<ServiceTask> pred)
     {
+        using var l = listLock.EnterScope();
         foreach (var lvl in list)
         {
             foreach (var task in lvl)
@@ -52,6 +53,7 @@ public class TaskList
 
     public void RemoveIf(Func<ServiceTask, bool> pred)
     {
+        using var l = listLock.EnterScope();
         List<ServiceTask> toRemove = new();
         foreach (var lvl in list)
         {
