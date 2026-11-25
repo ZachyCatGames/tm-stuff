@@ -14,7 +14,7 @@ public class HostIOReadTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -28,18 +28,18 @@ public class HostIOReadTask : ServiceTask
         while (reamining > 0 && err == HioErrorCode.SuccessContinue)
         {
             /* Allocate a send a packet. */
-            Packet.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await AllocSendPacketAsync();
             reply.isInitiate = false;
             
             /* Determine how much we should read. */
-            int curSize = (int)Math.Min(reamining, Packet.Packet.DataMaxSize - 0x8);
+            int curSize = (int)Math.Min(reamining, Packets.Packet.DataMaxSize - 0x8);
             Console.WriteLine("Reading {0}", curSize);
         
             /* Try to read the file. */
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packet.Packet.HeaderSize + 0x8, curSize, GetCancelToken());
+                await mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packets.Packet.HeaderSize + 0x8, curSize, GetCancelToken());
             }
             catch (HioException excpt)
             {

@@ -13,7 +13,7 @@ public class HostDirectoryIOReadTask : ServiceTask
     
     async void SendErrorImpl(HioErrorCode err)
     {
-        Packet.Packet pkt = this.AllocRecvPacket();
+        Packets.Packet pkt = this.AllocRecvPacket();
         pkt.Write((Int32)err);
         pkt.WriteHeader();
         await SendPacketAsync(pkt);
@@ -22,7 +22,7 @@ public class HostDirectoryIOReadTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -45,9 +45,9 @@ public class HostDirectoryIOReadTask : ServiceTask
         }
         
         foreach (var entry in entries) {
-            Packet.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await AllocSendPacketAsync();
             reply.Write((Int32)0);
-            reply.AdvancePosition(entry.WriteTo(reply.GetBuffer(), Packet.Packet.HeaderSize + 0x4));
+            reply.AdvancePosition(entry.WriteTo(reply.GetBuffer(), Packets.Packet.HeaderSize + 0x4));
             await SendPacketAsync(reply);
         }
 

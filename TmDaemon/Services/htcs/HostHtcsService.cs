@@ -11,7 +11,7 @@ public class HostHtcsService : ServiceBase
         manager = portMgr;
     }
 
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         ServiceTask? task = null;
 #if HTCS_TASK_DEBUG
@@ -50,37 +50,37 @@ public class HostHtcsService : ServiceBase
 
         return task;
     }
-    HtcsSocketTask ProcessSocket(Packet.Packet pkt)
+    HtcsSocketTask ProcessSocket(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsCloseTask ProcessClose(Packet.Packet pkt)
+    HtcsCloseTask ProcessClose(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsBindTask ProcessBind(Packet.Packet pkt)
+    HtcsBindTask ProcessBind(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsListenTask ProcessListen(Packet.Packet pkt)
+    HtcsListenTask ProcessListen(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsAcceptTask ProcessAccept(Packet.Packet pkt)
+    HtcsAcceptTask ProcessAccept(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsRecvTask ProcessRecv(Packet.Packet pkt)
+    HtcsRecvTask ProcessRecv(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }
 
-    HtcsSendTask ProcessSend(Packet.Packet pkt)
+    HtcsSendTask ProcessSend(Packets.Packet pkt)
     {
         return new (this, manager, pkt.taskId);
     }

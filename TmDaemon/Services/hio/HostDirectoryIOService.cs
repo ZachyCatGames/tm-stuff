@@ -12,7 +12,7 @@ public class HostDirectoryIOService : ServiceBase {
         this.hostfsMgr = hostfsMgr;
     }
 
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         pkt.Print();
         ServiceTask? task = null;

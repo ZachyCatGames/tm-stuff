@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
-using Test.Packet;
+using Test.Packets;
 
 namespace Test.Services.test;
 
@@ -25,7 +25,7 @@ public class ProxyService : ServiceBase
 
         protected override async Task Run()
         {
-            Packet.Packet pkt = await WaitForPacket();
+            Packets.Packet pkt = await WaitForPacket();
             await ((ProxyService)parent).sendPackets.AddAsync(pkt);
         }
     }
@@ -37,14 +37,14 @@ public class ProxyService : ServiceBase
 
         for (int i = 0; i < 10; i++)
         {
-            freePackets.Add(new Packet.Packet(freePackets));
+            freePackets.Add(new Packets.Packet(freePackets));
         }
         Console.WriteLine("cringe {0}", freePackets.GetFreeCount());
 
         workThread.Start();
     }
 
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         return new ProxyTask(this, pkt.taskType, pkt.taskId, 0);
     }
@@ -54,7 +54,7 @@ public class ProxyService : ServiceBase
     {
         while (true)
         {
-            Packet.Packet pkt;
+            Packets.Packet pkt;
             try
             {
                 pkt = await freePackets.TakeAsync(cancelSrc.Token);
@@ -66,9 +66,9 @@ public class ProxyService : ServiceBase
             
             try {
                 int recvd = 0;
-                while (recvd < Packet.Packet.HeaderSize)
+                while (recvd < Packets.Packet.HeaderSize)
                 {
-                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), recvd, Packet.Packet.HeaderSize + recvd), cancelSrc.Token);
+                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), recvd, Packets.Packet.HeaderSize + recvd), cancelSrc.Token);
                     if (c == 0)
                     {
                         return;
@@ -78,12 +78,12 @@ public class ProxyService : ServiceBase
   
                 pkt.Reset();
                 pkt.ParseHeader();
-                Console.WriteLine("recv pkt size {0}, {1}", pkt.dataSize, new ArraySegment<byte>(pkt.GetBuffer(), Packet.Packet.HeaderSize, pkt.dataSize).Count);
+                Console.WriteLine("recv pkt size {0}, {1}", pkt.dataSize, new ArraySegment<byte>(pkt.GetBuffer(), Packets.Packet.HeaderSize, pkt.dataSize).Count);
                 
                 recvd = 0;
                 while (recvd < pkt.dataSize)
                 {
-                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), Packet.Packet.HeaderSize + recvd, pkt.dataSize - recvd), cancelSrc.Token);
+                    int c = await connection.ReceiveAsync(new ArraySegment<byte>(pkt.GetBuffer(), Packets.Packet.HeaderSize + recvd, pkt.dataSize - recvd), cancelSrc.Token);
                     if (c == 0)
                     {
                         return;
@@ -116,7 +116,7 @@ public class ProxyService : ServiceBase
     {
         while(true)
         {
-            Packet.Packet pkt;
+            Packets.Packet pkt;
             try
             {
                 pkt = await sendPackets.TakeAsync(cancelSrc.Token);
@@ -128,7 +128,7 @@ public class ProxyService : ServiceBase
 
             Console.WriteLine("Sending packet");
             try {
-                int c = await connection.SendAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packet.Packet.HeaderSize + pkt.dataSize));
+                int c = await connection.SendAsync(new ArraySegment<byte>(pkt.GetBuffer(), 0, Packets.Packet.HeaderSize + pkt.dataSize));
                 if (c == 0)
                     return;
             }

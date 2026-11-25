@@ -14,7 +14,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive the packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fdIn);
@@ -40,7 +40,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
         }
         
         /* Allocate a packet. */
-        Packet.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await AllocSendPacketAsync();
         
         /* Setup our reply. */
         reply.isInitiate = false;

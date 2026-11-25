@@ -11,7 +11,7 @@ public class HtcsRecvTask : ServiceTask
     async Task Process()
     {
         /* Receive info packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         pkt.Read(out int fd);
         pkt.Read(out Int64 remaining);
@@ -30,7 +30,7 @@ public class HtcsRecvTask : ServiceTask
             var reply = await AllocSendPacketAsync();
 
             /* Get data buffer. */
-            Int64 curSize = Math.Min(remaining, Packet.Packet.DataMaxSize - 0xD);
+            Int64 curSize = Math.Min(remaining, Packets.Packet.DataMaxSize - 0xD);
             var buf = reply.GetDataBuffer(0xD, (int)curSize);
 
             /* Receive a packet from the host socket. */

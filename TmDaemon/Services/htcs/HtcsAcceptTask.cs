@@ -11,7 +11,7 @@ public class HtcsAcceptTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int32 fd);

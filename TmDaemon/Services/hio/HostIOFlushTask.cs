@@ -14,7 +14,7 @@ public class HostIOFlushTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -34,7 +34,7 @@ public class HostIOFlushTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packet.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);

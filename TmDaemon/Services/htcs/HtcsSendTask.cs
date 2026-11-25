@@ -10,7 +10,7 @@ public class HtcsSendTask : ServiceTask
         this.htcsManager = manager;
     }
 
-    async Task<bool> ProcessImpl(Packet.Packet pkt)
+    async Task<bool> ProcessImpl(Packets.Packet pkt)
     {
         /* Parse the packet recv header. */
         pkt.Read(out int fd);
@@ -59,7 +59,7 @@ public class HtcsSendTask : ServiceTask
             }
 
             /* Allocate a packet for our response. */
-            Packet.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await AllocSendPacketAsync();
 
             /* Setup the packet. */
             reply.isInitiate = false;
@@ -83,7 +83,7 @@ public class HtcsSendTask : ServiceTask
         while (!done)
         {
             /* Wait for a packet. */
-            Packet.Packet pkt = await this.WaitForPacket();
+            Packets.Packet pkt = await this.WaitForPacket();
 
             /* Process the packet. */
             done = await this.ProcessImpl(pkt);

@@ -8,11 +8,11 @@ public class HostDebugService : ServiceBase
 
     private class DbgTask : ServiceTask
     {
-        private readonly Packet.Packet packet;
+        private readonly Packets.Packet packet;
         
-        public Packet.Packet? Reply { get; private set; }
+        public Packets.Packet? Reply { get; private set; }
         
-        public DbgTask(HostDebugService parent, Packet.Packet pkt, uint taskId) : base(parent, TaskType.Debug, taskId, 0)
+        public DbgTask(HostDebugService parent, Packets.Packet pkt, uint taskId) : base(parent, TaskType.Debug, taskId, 0)
         {
             Console.WriteLine(taskId);
             packet = pkt;
@@ -34,7 +34,7 @@ public class HostDebugService : ServiceBase
         public UInt64    ProcessId { get; init; }
         public UInt32    Result    { get; init; }
 
-        public ReplyBase(Packet.Packet pkt)
+        public ReplyBase(Packets.Packet pkt)
         {
             pkt.Read(out UInt32 replyType);
             ReplyType = (ReplyType)replyType;
@@ -52,7 +52,7 @@ public class HostDebugService : ServiceBase
         public ReplyBase Base;
         public Int32     S32 { get; init; }
         
-        public ReplyS32(Packet.Packet pkt)
+        public ReplyS32(Packets.Packet pkt)
         {
             Base = new(pkt);
             pkt.Read(out Int32 s32);
@@ -66,7 +66,7 @@ public class HostDebugService : ServiceBase
         taskIdAlloc = tidAlloc;
     }
 
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         return null;
     }
@@ -88,7 +88,7 @@ public class HostDebugService : ServiceBase
         return new ReplyS32(reply).S32;
     }
 
-    private async Task<Packet.Packet> PreparePacket(DebugTaskType type, UInt64 pid)
+    private async Task<Packets.Packet> PreparePacket(DebugTaskType type, UInt64 pid)
     {
         var pkt = serviceManager.AllocSendPacket();
         pkt.Reset();

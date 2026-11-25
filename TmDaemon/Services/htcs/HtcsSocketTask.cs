@@ -11,7 +11,7 @@ public class HtcsSocketTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packet.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await WaitForPacket();
 
         /* This should just contain -1..? */
         pkt.Read(out Int32 fd);

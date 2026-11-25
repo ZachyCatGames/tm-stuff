@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
-using Test.Packet;
+using Test.Packets;
 
 namespace Test.Services;
 
@@ -22,7 +22,7 @@ public class ServiceManager
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
     
-    private readonly Channel<Packet.Packet>    sendQueue = Channel.CreateUnbounded<Packet.Packet>();
+    private readonly Channel<Packets.Packet>    sendQueue = Channel.CreateUnbounded<Packets.Packet>();
     private readonly Thread             workThread;
     private readonly Channel<WorkerCmd> cmdQueue = Channel.CreateUnbounded<WorkerCmd>();
     //private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
@@ -43,9 +43,9 @@ public class ServiceManager
     private class WorkerCmd
     {
         public CmdType type;
-        public Packet.Packet? pkt;
+        public Packets.Packet? pkt;
 
-        public WorkerCmd(CmdType type, Packet.Packet pkt)
+        public WorkerCmd(CmdType type, Packets.Packet pkt)
         {
             this.type = type;
             this.pkt = pkt;
@@ -61,12 +61,12 @@ public class ServiceManager
     {
         for (int i = 0; i < SendPacketsCountMax; i++)
         {
-            freePacketsForSend.Add(new Packet.Packet(freePacketsForSend));
+            freePacketsForSend.Add(new Packets.Packet(freePacketsForSend));
         }
 
         for (int i = 0; i < RecvPacketsCountMax; i++)
         {
-            freePacketsForRecv.Add(new Packet.Packet(freePacketsForRecv));
+            freePacketsForRecv.Add(new Packets.Packet(freePacketsForRecv));
         }
         
         /* Start the worker thread. */
@@ -100,31 +100,51 @@ public class ServiceManager
     }
     
     /* Packet allocators. */
-    public Packet.Packet AllocRecvPacket() => freePacketsForRecv.Take();
+    public Packets.Packet AllocRecvPacket()
+    {
+        Packet pkt = freePacketsForRecv.Take();
+        pkt.Reset();
+        return pkt;
+    }
 
-    public Task<Packet.Packet> AllocRecvPacketAsync() => freePacketsForRecv.TakeAsync();
+    public async Task<Packets.Packet> AllocRecvPacketAsync()
+    {
+        Packet pkt = await freePacketsForRecv.TakeAsync();
+        pkt.Reset();
+        return pkt;
+    }
 
-    public Packet.Packet AllocSendPacket() => freePacketsForSend.Take();
+    public Packets.Packet AllocSendPacket()
+    {
+        Packet pkt = freePacketsForSend.Take();
+        pkt.Reset();
+        return pkt;
+    };
 
-    public Task<Packet.Packet> AllocSendPacketAsync() => freePacketsForSend.TakeAsync();
+    public async Task<Packets.Packet> AllocSendPacketAsync()
+    {
+        Packet pkt = await freePacketsForSend.TakeAsync();
+        pkt.Reset();
+        return pkt;
+    };
     
     /* These are for tasks to send replies or w/e */
-    public void SendPacket(Packet.Packet pkt)
+    public void SendPacket(Packets.Packet pkt)
     {
         pkt.WriteHeader();
         sendQueue.Writer.TryWrite(pkt);
     }
 
-    public async Task SendPacketAsync(Packet.Packet pkt)
+    public async Task SendPacketAsync(Packets.Packet pkt)
     {
         pkt.WriteHeader();
         await sendQueue.Writer.WriteAsync(pkt);
     }
     
     /* These are for the packet manager. */
-    public void OnRecvPacket(Packet.Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
+    public void OnRecvPacket(Packets.Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
-    public async Task<Packet.Packet> PopSendPacketAsync(CancellationToken ct) => await sendQueue.Reader.ReadAsync(ct);
+    public async Task<Packets.Packet> PopSendPacketAsync(CancellationToken ct) => await sendQueue.Reader.ReadAsync(ct);
     
     private async void WorkThreadFunc()
     {
@@ -185,7 +205,7 @@ public class ServiceManager
     }
 
     // called by PacketManager recv thread
-    private void ProcessRecvPacketImpl(Packet.Packet pkt)
+    private void ProcessRecvPacketImpl(Packets.Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();

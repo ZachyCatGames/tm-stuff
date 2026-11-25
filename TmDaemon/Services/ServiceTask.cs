@@ -1,4 +1,4 @@
-using Test.Packet;
+using Test.Packets;
 
 namespace Test.Services;
 
@@ -43,6 +43,13 @@ public abstract class ServiceTask
     {
         /* Start the task. */
         await Run();
+        
+        /* Clear any pending packets. */
+        while (HasPendingRecvPacket())
+        {
+            Packet pkt = await WaitForPacket();
+            pkt.Release();
+        }
     }
 
     public virtual void StartImpl()
@@ -63,7 +70,7 @@ public abstract class ServiceTask
 
     protected ServiceManager GetManager() => parent.GetManager();
     
-    private void InitPacketImpl(Packet.Packet pkt)
+    private void InitPacketImpl(Packets.Packet pkt)
     {
         pkt.serviceId = serviceId;
         pkt.taskId    = taskId;
@@ -73,39 +80,40 @@ public abstract class ServiceTask
 
     protected CancellationToken GetCancelToken() => cancelSrc.Token;
 
-    protected Packet.Packet AllocSendPacket()
+    protected Packets.Packet AllocSendPacket()
     {
-        Packet.Packet pkt = GetManager().AllocSendPacket();
+        Packets.Packet pkt = GetManager().AllocSendPacket();
         InitPacketImpl(pkt);
         return pkt;
     }
 
-    protected async Task<Packet.Packet> AllocSendPacketAsync()
+    protected async Task<Packets.Packet> AllocSendPacketAsync()
     {
-        Packet.Packet pkt = await GetManager().AllocSendPacketAsync();
+        Packets.Packet pkt = await GetManager().AllocSendPacketAsync();
         InitPacketImpl(pkt);
         return pkt;
     }
 
-    protected Packet.Packet AllocRecvPacket()
+    protected Packets.Packet AllocRecvPacket()
     {
-        Packet.Packet pkt = GetManager().AllocRecvPacket();
+        Packets.Packet pkt = GetManager().AllocRecvPacket();
         InitPacketImpl(pkt);
         return pkt;
     }
     
-    protected async Task<Packet.Packet> AllocRecvPacketAsync()
+    protected async Task<Packets.Packet> AllocRecvPacketAsync()
     {
-        Packet.Packet pkt = await GetManager().AllocRecvPacketAsync();
+        Packets.Packet pkt = await GetManager().AllocRecvPacketAsync();
         InitPacketImpl(pkt);
         return pkt;
     }
 
-    protected void SendPacket(Packet.Packet pkt) => parent.GetManager().SendPacket(pkt);
+    protected void SendPacket(Packets.Packet pkt) => parent.GetManager().SendPacket(pkt);
     
-    protected Task SendPacketAsync(Packet.Packet pkt) => parent.GetManager().SendPacketAsync(pkt);
+    protected Task SendPacketAsync(Packets.Packet pkt) => parent.GetManager().SendPacketAsync(pkt);
 
-    public void SignalIncomingPacket(Packet.Packet pkt) => packets.Add(pkt);
+    public void SignalIncomingPacket(Packets.Packet pkt) => packets.Add(pkt);
 
-    protected async Task<Packet.Packet> WaitForPacket() => await packets.TakeAsync();
+    protected bool HasPendingRecvPacket() => packets.Count != 0;
+    protected async Task<Packets.Packet> WaitForPacket() => await packets.TakeAsync();
 }

@@ -44,5 +44,9 @@ public enum TaskType : ushort
 
     GetVar                  = 0x29,
 
-    GetFileTimeStamp         = 0x2B,
+    GetFileTimeStamp        = 0x2B,
+    
+    PmSuspend               = 0x2C,
+    
+    PmStateChange           = 0x5C,
 }

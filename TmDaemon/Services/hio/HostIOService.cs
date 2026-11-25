@@ -12,7 +12,7 @@ public class HostIOService : ServiceBase {
         this.hostfsMgr = hostfsMgr;
     }
     
-    public override ServiceTask? ProcessNewRequest(Packet.Packet pkt)
+    public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
     {
         Console.WriteLine("hio recv packet");
         pkt.Print();
