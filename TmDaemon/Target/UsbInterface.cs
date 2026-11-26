@@ -21,6 +21,7 @@ public class UsbInterface : IDisposable
     public UsbInterface(UsbDevice dev)
     {
         this.device = dev;
+        this.device.Open();
 
         this.device.ClaimInterface(this.device.Configs[0].Interfaces[0].Number);
 
@@ -35,7 +36,8 @@ public class UsbInterface : IDisposable
     public UsbInterface(UsbDevice dev, int timeout, bool timeoutLoop)
     {
         this.device = dev;
-
+        this.device.Open();
+        
         this.device.ClaimInterface(this.device.Configs[0].Interfaces[0].Number);
 
         this.writer = device.OpenEndpointWriter(WriteEndpointID.Ep01);
@@ -78,7 +80,7 @@ public class UsbInterface : IDisposable
         }
     }
 
-    public async Task<(Error, int)> ReadAsync(byte[] buf) => await this.reader.ReadAsync(buf, 0, buf.Length, Timeout);
+    public async Task<(Error, int)> ReadAsync(byte[] buf, int offs, int size) => await this.reader.ReadAsync(buf, offs, size, Timeout);
     
     public Error Write(byte[] buf, out int writeSize) => this.Write(buf, 0, buf.Length, out writeSize);
     
@@ -99,5 +101,5 @@ public class UsbInterface : IDisposable
         }
     }
 
-    public async Task<(Error, int)> WriteAsync(byte[] buf) => await this.writer.WriteAsync(buf, 0, buf.Length, Timeout);
+    public async Task<(Error, int)> WriteAsync(byte[] buf, int offs, int size) => await this.writer.WriteAsync(buf, offs, size, Timeout);
 }

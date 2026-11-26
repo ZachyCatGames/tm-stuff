@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Channels;
 using LibUsbDotNet;
 using LibUsbDotNet.Info;
 using LibUsbDotNet.LibUsb;
+using Test.Packets;
 using Test.Services;
 using Test.Target;
 
@@ -10,6 +12,110 @@ namespace Test.TargetManager;
 
 public class UsbTargetProvider : ITargetProvider, IDisposable
 {
+    class TargetInfoReader : IDisposable
+    {
+        // connect + beacon reply
+        private const UInt32 InitializeServiceId   = 0xcd5ed1b8;
+        // disconnect + no reply
+        private const UInt32 FinalizeServiceId     = 0xf97fe6b9;
+        // beacon reply
+        private const UInt32 QueryAgentInfo        = 0x3a8ddd94;
+        // send host info + no reply
+        private const UInt32 SendHostInfoServiceId = 0x4d4a6c24;
+        
+        private readonly UsbInterface usbIf;
+
+        private async Task<bool> SendPacket(Packet pkt)
+        {
+            /* Send the header. */
+            var (err, sent) = await usbIf.WriteAsync(pkt.GetBuffer(), 0, Packet.HeaderSize);
+            if (err != Error.Success)
+            {
+                return false;
+            }
+            
+            /* Send the body. */
+            (err, sent) = await usbIf.WriteAsync(pkt.GetBuffer(), Packet.HeaderSize, pkt.dataSize);
+            if (err != Error.Success)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<bool> ReceivePacket(Packet pkt)
+        {
+            /* Receive the whole packet. */
+            var (err, received) = await usbIf.ReadAsync(pkt.GetBuffer(), 0, Packet.PacketMaxSize);
+            return err == Error.Success;
+        }
+        
+        public async Task<BeaconPacket?> GetBeaconImpl(uint serviceId)
+        {
+            var pkt = new Packet();
+            pkt.Reset();
+            pkt.serviceId = serviceId;
+            pkt.Write(4);
+            pkt.WriteHeader();
+
+            if (!await this.SendPacket(pkt))
+                return null;
+
+            if (!await this.ReceivePacket(pkt))
+                return null;
+            
+            /* Parse the reply. */
+            pkt.ParseHeader();
+            string beaconStr = pkt.ReadString(0x1000);
+            return new BeaconPacket(beaconStr);
+        }
+        
+        public TargetInfoReader(UsbDevice dev)
+        {
+            this.usbIf = new UsbInterface(dev, 500, false);
+        }
+
+        public void Dispose() => usbIf.Dispose();
+
+        public async Task<BeaconPacket?> GetBeacon()
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                var reply = await this.GetBeaconImpl(QueryAgentInfo);
+                if (reply != null)
+                    return reply;
+            }
+
+            return null;
+        }
+
+        public async Task<BeaconPacket?> Connect()
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                var reply = await this.GetBeaconImpl(QueryAgentInfo);
+                if (reply != null)
+                    return reply;
+            }
+
+            return null;
+        }
+
+        public async Task SendHostBeacon(int bcid, int ps)
+        {
+            string beacon = string.Format("\nBCID: {0}\nPS: {1}\n", bcid, ps);
+            var pkt = new Packet();
+            pkt.Reset();
+            pkt.serviceId = SendHostInfoServiceId;
+            pkt.Write((UInt32)beacon.Length + 1);
+            pkt.Write(beacon);
+            pkt.WriteHeader();
+
+            await this.SendPacket(pkt);
+        }
+    }
+
     const int SdkProductId = 0x3000;
     const int SdkVendorId = 0x57E;
 
@@ -24,7 +130,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     private Task? hotplugMonitor;
     private CancellationTokenSource? hotplugCts;
     private readonly Channel<DeviceEventArgs> hotplugEvents = Channel.CreateUnbounded<DeviceEventArgs>();
-    private readonly Dictionary<LocationId, TargetInfo> discoveryInfos = new();
+    private readonly Dictionary<string, TargetInfo> attachedTargets = new();
+    private readonly Dictionary<string, (TargetInfo, string)> attachedBySerial = new();
     private bool discoveryEnabled = false;
 
     public UsbTargetProvider(ITargetManager parent)
@@ -40,150 +147,29 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         this.context.Dispose();
     }
     
-    private async Task<(Target.Target?, bool)> CreateTargetAsyncUnsafe(UsbDevice device)
+    private async Task<BeaconPacket?> GetBeaconPacket(UsbDevice device)
     {
-        string id;
-        try
+        using (var reader = new TargetInfoReader((UsbDevice)device))
         {
-            id = device.LocationId.ToString();
+            return await reader.GetBeacon();
         }
-        catch (UsbException e)
-        {
-            return (null, false);
-        }
-        
-        /* Check if we already have a target for this device. */
-        if (this.connectedTargets.ContainsKey(id))
-        {
-            return (this.connectedTargets[id], false);
-        }
-        
-        /* Open the device. */
-        device.Open();
-
-        foreach (var c in device.Configs)
-        {
-            Console.WriteLine(c.ToString());
-        }
-
-        foreach (var c in device.Configs[0].Interfaces)
-        {
-            Console.WriteLine(c.ToString());
-        }
-
-        /* Create a new target. */
-        UsbPacketManager pktMgr;
-        Target.Target targ;
-        var serviceMgr = new ServiceManager();
-        
-        try
-        {
-            pktMgr = new UsbPacketManager(device, serviceMgr, this);
-        }
-        catch (UsbException e)
-        {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
-            device.Dispose();
-            return (null, false);
-        }
-        catch (Exception e)
-        {
-            device.Dispose();
-            return (null, false);
-        }
-
-        try
-        {
-            targ = new Target.Target(parent, serviceMgr, pktMgr);
-        }
-        catch (UsbException e)
-        {
-            await pktMgr.DisconnectAsync();
-            pktMgr.Dispose();
-            return (null, false);
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
-            await pktMgr.DisconnectAsync();
-            pktMgr.Dispose();
-            return (null, false);
-        }
-
-        /* Initialize target. */
-        bool success = false;
-        try
-        {
-            success = await targ.InitializeAsync();
-        }
-        catch (UsbException e)
-        {
-            /* ... */
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine("Non-USB Exception in CreateTarget: {0}", e);
-        }
-
-        if (!success)
-        {
-            await targ.DisconnectAsync();
-            targ.Dispose();
-            return (null, false);
-        }
-        
-        return (targ, true);
     }
-
-    public async Task<TargetList> QueryTargetsImplUnsafeAsync()
-    {
-        var list = new TargetList();
-        
-        using (var sdkDevices = this.context.FindAll(d => d.VendorId == SdkVendorId && d.ProductId == SdkProductId))
-        {
-            foreach (var dev in sdkDevices)
-            {
-                var (target, isNew) = await this.CreateTargetAsyncUnsafe((UsbDevice)(dev.Clone()));
-                if (isNew && target != null)
-                {
-                    list.Add(target);
-                } 
-            }
-        }
-
-        return list;
-    } 
     
     public async Task<int> QueryDisconnectedCountAsync()
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
-
-        int count = 0;
-        await using (var targets = await this.QueryTargetsImplUnsafeAsync())
-        {
-            count = targets.Count;
-        }
-
-        return count;
+        return this.attachedTargets.Count;
     }
 
     public async Task<List<TargetInfo>> QueryDisconnectedInfosAsync()
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
-        
-        var list = new List<TargetInfo>();
-        await using (var targets = await this.QueryTargetsImplUnsafeAsync())
-        {
-            targets.ForEach(t => list.Add(t.Info));
-        }
-
-        return list;
+        return this.attachedTargets.Values.ToList();
     }
 
     public async Task<int> QueryConnectedCountAsync()
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
-        
         return this.connectedTargets.Count;
     }
 
@@ -203,36 +189,65 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     public async Task<Target.Target?> ConnectAsync(string serialNumber)
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
-        
-        var list = await this.QueryTargetsImplUnsafeAsync();
-        Target.Target? selected = null;
-        foreach (var targ in list)
+
+        if (!connectedTargets.TryGetValue(serialNumber, out var target))
+            return target;
+
+        if (!attachedBySerial.TryGetValue(serialNumber, out var info))
+            return null;
+
+        var (targInfo, id) = info;
+        targInfo.Status = TargetStatus.Connected;
+
+        using (var dev = (UsbDevice)context.Find(x => x.LocationId.ToString() == id))
         {
-            TargetInfo info = targ.Info;
-            if (info.SerialNumber == serialNumber)
+            var srvMgr = new ServiceManager();
+
+            using (var reader = new TargetInfoReader((UsbDevice)dev.Clone()))
             {
-                /* Connect to it. */
-                await targ.ConnectAsync();
-
-                /* Add it to the connected list. */
-                var id = ((UsbPacketManager)targ.GetPacketManager()).UsbLocationId.ToString();
-                connectedTargets[id] = targ;
-
-                /* Dispose of the last selected target. */
-                if (selected != null)
-                {
-                    await selected.DisconnectAsync();
-                    selected.Dispose();
-                }
-
-                selected = targ;
+                /* Send host info. */
+                await reader.SendHostBeacon(96, 0);
+                
+                /* Connect. */
+                await reader.Connect();
             }
-            else
+        
+            /* Setup packet manager. */
+            UsbPacketManager pktMgr;
+            try
+            {
+                pktMgr = new((UsbDevice)dev.Clone(), srvMgr, this);
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
+
+            /* Setup Target. */
+            Target.Target targ;
+            try
+            {
+                targ = new(this.parent, srvMgr, pktMgr, targInfo);
+            }
+            catch (Exception e)
+            {
+                pktMgr.Dispose();
+                return null;
+            }
+
+            /* Initialize target. */
+            try
+            {
+                await targ.InitializeAsync();
+            }
+            catch (Exception e)
             {
                 targ.Dispose();
+                return null;
             }
+
+            return targ;
         }
-        return selected;
     }
 
     public void BeginTargetHotplug()
@@ -272,7 +287,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         this.context.DeviceEvent -= this.HotplugCallback;
         
         /* Cleanup. */
-        this.discoveryInfos.Clear();
+        this.connectedTargets.Clear();
         this.hotplugCts = null;
         this.hotplugMonitor = null;
     }
@@ -285,57 +300,55 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     private async Task HandleDevicePlugged(DeviceArrivedEventArgs e)
     {
         UsbDevice dev = e.Device;
+        LocationId id = dev.LocationId;
             
         /* Ignore it if it's not a NintendoSDK device. */
         if (dev.ProductId == SdkProductId || dev.VendorId == SdkVendorId)
         {
-            /* Grab device info. */
-            var (targ, isNew) = await CreateTargetAsyncUnsafe(dev);
-            if (targ == null)
-                return;
-
-            /* If it's not a new target, resume if it's suspended. */
-            Debug.Assert(targ.Info != null);
-            Console.WriteLine("{0}", isNew);
-            if (!isNew && targ.Info.Status == TargetStatus.Asleep)
-            {
-                dev.Open();
-                await targ.NotifyResume(dev);
-            }
-            else
-            {
-                /* Notify the manager. */
-                var info = targ.Info;
-                this.parent.NotifyDiscoveryEvent(info, true);
-
-                /* Save info the target info ourself. */
-                this.discoveryInfos[dev.LocationId] = info;
-
-                /* Destroy the target if it was a preexisting connection. */
-                if (isNew)
-                {
-                    await targ.DisconnectAsync();
-                    targ.Dispose();
-                }
-            }
+            dev.Open();
             
+            using (var reader = new TargetInfoReader((UsbDevice)dev.Clone()))
+            {
+                var beacon = await reader.GetBeacon();
+                if (beacon == null)
+                    return;
+                
+                /* Parse the beacon packet. */
+                var info = new TargetInfo()
+                {
+                    Address = id.ToString(),
+                    ConnectionType = "USB",
+                    SerialNumber = beacon?.SN,
+                    Status = TargetStatus.Disconnected
+                };
+                
+                /* Check if this is a connected target. */
+                if (this.connectedTargets.TryGetValue(info.SerialNumber, out var target))
+                {
+                    target.NotifyResume(dev);
+                    return;
+                }
+                
+                this.parent.NotifyDiscoveryEvent(info, true);
+                this.attachedTargets[id.ToString()] = info;
+                this.attachedTargets[info.SerialNumber] = info;
+            }
+        }
 
-        }
-        else
-        {
-            dev.Dispose();
-        }
+        dev.Dispose();
+
     }
 
     private async Task HandleDeviceUnplugged(DeviceLeftEventArgs e)
     {
-        var devInfo = e.DeviceInfo.PortInfo;
-        if (!this.discoveryInfos.ContainsKey(devInfo))
+        var devInfo = e.DeviceInfo.PortInfo.ToString();
+        if (!this.attachedTargets.TryGetValue(devInfo, out var info))
             return;
             
         /* Remove it. */
-        parent.NotifyDiscoveryEvent(this.discoveryInfos[devInfo], false);
-        this.discoveryInfos.Remove(devInfo);
+        parent.NotifyDiscoveryEvent(this.attachedTargets[devInfo], false);
+        this.attachedBySerial.Remove(info.SerialNumber);
+        this.attachedTargets.Remove(devInfo);
     }
     
     private async Task HotplugWorker()

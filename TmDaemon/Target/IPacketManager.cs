@@ -10,14 +10,8 @@ namespace Test.Target;
 
 public interface IPacketManager : IDisposable
 {
-    public Task ConnectAsync();
     public Task DisconnectAsync();
 
     public Task NotifySuspendAsync();
     public Task NotifyResumeAsync(object obj);
-
-    public Task<BeaconPacket?> GetBeaconPacket();
-
-    /* Target info comes from transport-specific beacon packets, so this lives here. */
-    public Task<TargetInfo> GetTargetInfo();
 }

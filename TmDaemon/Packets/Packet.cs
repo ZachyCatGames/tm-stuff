@@ -9,7 +9,7 @@ public class Packet
     public const int DataMaxSize   = 0xE000;
     public const int PacketMaxSize = HeaderSize + DataMaxSize;
 
-    private readonly PacketQueue sourceQueue;
+    private readonly PacketQueue? sourceQueue;
 
     private readonly byte[]             buffer;
     private readonly ArraySegment<byte> headerBuffer;
@@ -25,7 +25,16 @@ public class Packet
 
     public Packet(PacketQueue srcQ)
     {
-        sourceQueue       = srcQ;
+        this.sourceQueue  = srcQ;
+        this.buffer       = new byte[PacketMaxSize];
+        this.headerBuffer = new ArraySegment<byte>(buffer, 0, HeaderSize);
+        this.dataBuffer   = new ArraySegment<byte>(buffer, HeaderSize, DataMaxSize);
+        this.bufferPos    = HeaderSize;
+    }
+
+    public Packet()
+    {
+        this.sourceQueue = null;
         this.buffer       = new byte[PacketMaxSize];
         this.headerBuffer = new ArraySegment<byte>(buffer, 0, HeaderSize);
         this.dataBuffer   = new ArraySegment<byte>(buffer, HeaderSize, DataMaxSize);
@@ -56,7 +65,8 @@ public class Packet
     public void Release()
     {
         /* Release ourself to our source queue. */
-        sourceQueue.Add(this);
+        if (this.sourceQueue != null)
+            sourceQueue.Add(this);
     }
 
     public byte[] GetBuffer() => buffer;

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.AccessControl;
 using Test.htcs;
 using Test.Services;
 using Test.Services.dbg;
@@ -60,12 +61,15 @@ public class Target : IDisposable
         this.pmService.NotifyPrepDone();
     }
     
-    public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager)
+    public Target(ITargetManager parent, ServiceManager serviceManager, IPacketManager packetManager, TargetInfo info)
     {
         this.parent = parent;
         
         this.packetManager  = packetManager;
         this.serviceManager = serviceManager;
+        
+        /* Set info. */
+        this.Info = info;
         
         /* Setup hio and htcs managers. */
         this.hostfsManager   = new HostFilesystemManager();
@@ -95,10 +99,11 @@ public class Target : IDisposable
         
         /* Setup client context vars. */
         this.currentContextId = 0;
-        
-        /* Get initial info. */
-        this.Info = await this.packetManager.GetTargetInfo();
 
+        /* Update our status to connected. */
+        Debug.Assert(this.Info != null);
+        this.Info.Status = TargetStatus.Connected;
+        
         /* Success if info was read. */
         return this.Info != null;
     }
@@ -118,17 +123,7 @@ public class Target : IDisposable
     public AsyncLockHolder AcquireLock() =>  AsyncLockHolder.Enter(this.asyncLock);
 
     public Task<AsyncLockHolder> AcquireLockAsync() => AsyncLockHolder.EnterAsync(this.asyncLock);
-
-    public async Task ConnectAsync()
-    {
-        /* Start the packet manager properly. */
-        await this.packetManager.ConnectAsync();
-
-        /* Update our status to connected. */
-        Debug.Assert(this.Info != null);
-        this.Info.Status = TargetStatus.Connected;
-    }
-
+    
     private void DisconnectUnsafe()
     {
         /* Tear down the packet manager. */
@@ -200,6 +195,8 @@ public class Target : IDisposable
 
         /* Attempt resuming the packet manager. */
         await this.packetManager.NotifyResumeAsync(obj);
+        
+        Console.WriteLine("[target] resumed");
         
         /* Tag ourself as awake/connected. */
         //this.Info.Status = TargetStatus.Connected;

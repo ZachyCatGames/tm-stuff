@@ -10,117 +10,6 @@ namespace Test.Target;
 
 public class UsbPacketManager : IPacketManager
 {
-    // connect + beacon reply
-    private const UInt32 InitializeServiceId    = 0xcd5ed1b8;
-    // disconnect + no reply
-    private const UInt32 FinalizeQuietServiceId = 0xf97fe6b9;
-    // beacon reply
-    private const UInt32 FinalizeServiceId      = 0x3a8ddd94;
-    // send host info + no reply
-    private const UInt32 SendHostInfoServiceId  = 0x4d4a6c24;
-
-    private class ManagerService : IService
-    {
-        private readonly ServiceManager manager;
-        public ManagerService(ServiceManager mgr)
-        {
-            this.manager = mgr;
-        }
-
-        public ServiceManager GetManager() => this.manager;
-
-        public bool AcceptsServicesId(uint serviceId)
-        {
-            return serviceId == InitializeServiceId ||
-                   serviceId == FinalizeQuietServiceId ||
-                   serviceId == FinalizeServiceId ||
-                   serviceId == SendHostInfoServiceId;
-        }
-        
-        public UInt32 GetPrimaryServiceId() => 0;
-
-        public ServiceTask? ProcessNewRequest(Packets.Packet pkt)
-        {
-            throw new NotImplementedException();
-        }
-    }
-    
-    private class NormalTask : ServiceTask
-    {
-        public NormalTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
-        {
-            this.serviceId = serviceId;
-        }
-
-        protected override async Task Run()
-        {
-            /* Setup the packet. */
-            Packets.Packet pkt = await AllocSendPacketAsync();
-            pkt.serviceId = serviceId;
-            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
-            pkt.isInitiate = false;
-            pkt.taskType = TaskType.Invalid;
-            pkt.Write((UInt32)4);
-            
-            /* Send the packet. */
-            await SendPacketAsync(pkt);
-        }
-    }
-
-    private class BeaconTask : ServiceTask, IDisposable
-    {
-        public Packets.Packet BeaconPacket { get; private set; }
-        public BeaconTask(UInt32 serviceId, ManagerService mgr) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
-        {
-            this.serviceId = serviceId;
-        }
-
-        protected override async Task Run()
-        {
-            /* Setup the packet. */
-            Packets.Packet pkt = await AllocSendPacketAsync();
-            pkt.serviceId = serviceId;
-            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
-            pkt.isInitiate = false;
-            pkt.taskType = TaskType.Invalid;
-            pkt.Write((UInt32)4);
-            
-            /* Send the packet. */
-            await this.SendPacketAsync(pkt);
-            
-            /* Wait for the reply. */
-            this.BeaconPacket = await this.WaitForPacket();
-        }
-        
-        public void Dispose() => this.BeaconPacket.Release();
-    }
-    
-    private class HostInfoTask : ServiceTask
-    {
-        private string info;
-        
-        public HostInfoTask(UInt32 serviceId, ManagerService mgr, string info) : base(mgr, TaskType.Invalid, HostTaskIdAllocator.TaskIdForMgr, 0)
-        {
-            this.serviceId = serviceId;
-            this.info      = info;
-        }
-
-        protected override async Task Run()
-        {
-            /* Setup the packet. */
-            Packet pkt = await AllocSendPacketAsync();
-            pkt.serviceId = serviceId;
-            pkt.taskId = HostTaskIdAllocator.TaskIdForMgr;
-            pkt.isInitiate = false;
-            pkt.taskType = TaskType.Invalid;
-            pkt.Write((UInt32)(info.Length + 1));
-            pkt.Write(info);
-            
-            /* Send the packet. */
-            await this.SendPacketAsync(pkt);
-        }
-    }
-    
     private Thread sendThread;
     private Thread recvThread;
 
@@ -139,8 +28,6 @@ public class UsbPacketManager : IPacketManager
     private bool          abruptDisconnectHandled = false;
     private readonly Lock abruptDisconnectLock    = new();
 
-    private readonly ManagerService managerService;
-
     private readonly SemaphoreSlim cancelSem = new(0);
 
     public LocationId UsbLocationId { get; init; }
@@ -152,12 +39,8 @@ public class UsbPacketManager : IPacketManager
         serviceManager = mgr;
         usbIf          = new UsbInterface(usb);
         this.parent    = parent;
-        managerService = new(serviceManager);
 
         UsbLocationId = usbIf.UsbLocationId;
-
-        /* Register the manager service. */
-        serviceManager.RegisterService(managerService);
 
         beaconPacket    = null;
         isConnected     = false;
@@ -170,33 +53,6 @@ public class UsbPacketManager : IPacketManager
     {
         /* Dispose the USB Interface. */
         usbIf.Dispose();
-    }
-    
-    public async Task<TargetInfo?> GetTargetInfo()
-    {
-        /* Get the beacon packet. */
-        BeaconPacket? pkt = await GetBeaconPacket();
-        if (pkt == null)
-            return null;
-
-        /* Parse it. */
-        string sn = pkt != null ? pkt.Value.SN : "Unknown";
-        return new TargetInfo()
-        {
-            SerialNumber   = sn,
-            Address        = UsbLocationId.ToString(),
-            ConnectionType = "USB",
-            Status         = isConnected ? TargetStatus.Connected : TargetStatus.Disconnected,
-        };
-    }
-
-    public async Task ConnectAsync()
-    {
-        /* Cancel any ongoing tasks. */
-        await SendBeaconTaskAsync(FinalizeServiceId);
-        
-        /* Actually connect. */
-        await ConnectImplAsync(0);
     }
     
     public async Task DisconnectAsync()
@@ -237,7 +93,7 @@ public class UsbPacketManager : IPacketManager
         this.StartWorkThreads();
         
         /* Reconnect, indicating we had a connection earlier. */
-        await this.ConnectImplAsync(1);
+        //await this.ConnectImplAsync(1);
         
         /* Clear suspended flag. */
         this.IsSuspended = false;
@@ -245,17 +101,6 @@ public class UsbPacketManager : IPacketManager
         Console.WriteLine("[usb] resumed");
     }
 
-    public async Task<BeaconPacket?> GetBeaconPacket()
-    {
-        /* Use cached packet if already cached. */
-        if (this.beaconPacket != null)
-            return this.beaconPacket;
-
-        /* Send a query packet. */
-        await SendBeaconTaskAsync(FinalizeServiceId);
-        return this.beaconPacket;
-    }
-    
     private void StartWorkThreads()
     {
         /* Create a new cancelation token. */
@@ -268,73 +113,6 @@ public class UsbPacketManager : IPacketManager
         Console.WriteLine("[usb] Started USB send thread");
         this.recvThread.Start();
         Console.WriteLine("[usb] Started USB recv thread");
-    }
-    
-    
-    private async Task ConnectImplAsync(int ps)
-    {
-        /* Send host info. */
-        string beacon = string.Format("\nBCID: 96\nPS: {0}\n", ps);
-        await SendHostInfoPacketAsync(beacon);
-        Console.WriteLine(beacon);
-        
-        /* Send a connect packet. */
-        await this.SendBeaconTaskAsync(InitializeServiceId);
-        
-        /* We're now connected. */
-        this.isConnected = true;
-    }
-    
-    private async Task<bool> SendNormalTaskAsync(UInt32 serviceId)
-    {
-        /* Query via get info cmd. */
-        var task = new NormalTask(serviceId, managerService);
-        this.serviceManager.RegisterNewTask(task);
-        
-        /* Wait for it to finish. */
-        await task.WaitDoneAsync();
-        
-        return !task.IsCancelled;
-    }
-
-    private async Task<bool> SendBeaconTaskAsync(UInt32 serviceId)
-    {
-        /* Query via get info cmd. */
-        using (var task = new BeaconTask(serviceId, managerService))
-        {
-            this.serviceManager.RegisterNewTask(task);
-        
-            /* Wait for it to finish. */
-            await task.WaitDoneAsync();
-        
-            /* Check if it was cancelled (due to disconnect). */
-            if (task.IsCancelled)
-            {
-                this.beaconPacket = null;
-                return false;
-            }
-        
-            /* Parse the beacon packet. */
-            string beaconStr = task.BeaconPacket.ReadString(0x300);
-            if (this.beaconPacket == null)
-            {
-                this.beaconPacket = new BeaconPacket(beaconStr);
-            }
-        }
-        
-        return true;
-    }
-
-    private async Task<bool> SendHostInfoPacketAsync(string info)
-    {
-        /* Setup task. */
-        var task = new HostInfoTask(SendHostInfoServiceId, this.managerService, info);
-        this.serviceManager.RegisterNewTask(task);
-        
-        /* Wait for it to finish. */
-        await task.WaitDoneAsync();
-
-        return !task.IsCancelled;
     }
 
     private void OnAbruptClose()
