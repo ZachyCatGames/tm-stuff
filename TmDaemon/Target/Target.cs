@@ -21,7 +21,9 @@ public class Target : IDisposable, IAsyncDisposable
             this.parent = target;
         }
 
-        public Task Notify(TargetEventType trans) => this.parent.OnPmStateChanged(trans);
+        public Task NotifyStateChange(TargetEventType trans) => this.parent.OnPmStateChanged(trans);
+
+        public Task NotifySuspend() => this.parent.OnSuspend();
     }
     
     private readonly ITargetManager parent;
@@ -54,17 +56,7 @@ public class Target : IDisposable, IAsyncDisposable
     {
         /* Notify our parent manager. */
         this.parent.NotifyTargetPmTransition(this, trans);
-        
-        switch (trans)
-        {
-            case TargetEventType.Suspended:
-                /* Prepare for sleep time :) */
-                await this.OnSuspend();
-                break;
-            default:
-                break;
-        }
-        
+
         pmService.NotifyPrepDone();
     }
     
@@ -88,7 +80,7 @@ public class Target : IDisposable, IAsyncDisposable
         debugService  = new HostDebugService(serviceManager, taskIdAlloc);
         pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), true);
         
-        clientContexts   = new();
+        clientContexts = new();
     }
 
     public async Task<bool> InitializeAsync()
@@ -223,7 +215,7 @@ public class Target : IDisposable, IAsyncDisposable
         await CloseAsyncUnsafe();
     }
 
-    public async Task OnSuspend()
+    private async Task OnSuspend()
     {
         /* Do nothing if already suspended/suspending. */
         Debug.Assert(this.Info != null);
@@ -234,12 +226,19 @@ public class Target : IDisposable, IAsyncDisposable
         this.Info.Status = TargetStatus.Asleep;
         
         /* Notify our packet manager. */
-        await packetManager.NotifySuspendAsync();
+        await this.packetManager.NotifySuspendAsync();
     }
 
-    public async Task OnResume()
+    public async Task NotifyResume(object obj)
     {
+        Debug.Assert(this.Info != null);
+        Debug.Assert(this.Info.Status == TargetStatus.Asleep);
+
+        /* Attempt resuming the packet manager. */
+        await this.packetManager.NotifyResumeAsync(obj);
         
+        /* Tag ourself as awake/connected. */
+        //this.Info.Status = TargetStatus.Connected;
     }
 
     public async Task<int> InitializeClientContext(UInt64 flags)

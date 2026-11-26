@@ -143,7 +143,7 @@ public class UsbPacketManager : IPacketManager
     
     private bool isConnected;
     
-    private readonly CancellationTokenSource cancelSrc = new();
+    private CancellationTokenSource threadCts = new();
 
     private bool          abruptDisconnectHandled = false;
     private readonly Lock abruptDisconnectLock    = new();
@@ -181,8 +181,12 @@ public class UsbPacketManager : IPacketManager
         usbIf.Dispose();
     }
 
-    public void StartWorkThreads()
+    private void StartWorkThreads()
     {
+        /* Create a new cancelation token. */
+        threadCts = new();
+        
+        /* Start 'em. */
         this.sendThread = new Thread(SendThread);
         this.recvThread = new Thread(RecvThread);
         this.sendThread.Start();
@@ -215,17 +219,15 @@ public class UsbPacketManager : IPacketManager
         await SendBeaconTaskImplAsync(FinalizeServiceId);
         
         /* Actually connect. */
-        await ReconnectAsync();
+        await ConnectImplAsync(0);
     }
 
-    public async Task ReconnectAsync()
+    public async Task ConnectImplAsync(int ps)
     {
         /* Send host info. */
-        await SendHostInfoPacketImplAsync("\nBCID: 96\nPS: 0\n");
-        
-        /* Do nothing if we're already connected. */
-        if (isConnected)
-            return;
+        string beacon = string.Format("\nBCID: 96\nPS: {0}\n", ps);
+        await SendHostInfoPacketImplAsync(beacon);
+        Console.WriteLine(beacon);
         
         /* Send a connect packet. */
         await SendBeaconTaskImplAsync(InitializeServiceId);
@@ -236,6 +238,9 @@ public class UsbPacketManager : IPacketManager
 
     public async Task NotifySuspendAsync()
     {
+        /* Hope that everything finishes... */
+        //await Task.Delay(100);
+        
         /* Indicate we're suspended. */
         IsSupended = true;
         
@@ -248,6 +253,8 @@ public class UsbPacketManager : IPacketManager
     
     public async Task NotifyResumeAsync(object obj)
     {
+        Console.WriteLine("[usb] resuming");
+        
         Debug.Assert(obj is UsbDevice);
         UsbDevice dev = (UsbDevice)obj;
         
@@ -256,6 +263,14 @@ public class UsbPacketManager : IPacketManager
         
         /* Start the work threads. */
         this.StartWorkThreads();
+        
+        /* Reconnect, indicating we had a connection earlier. */
+        await this.ConnectImplAsync(1);
+        
+        /* Clear suspended flag. */
+        IsSupended = false;
+        
+        Console.WriteLine("[usb] resumed");
     }
 
     public async Task DisconnectImplAsync(bool sendDcPkt)
@@ -392,7 +407,7 @@ public class UsbPacketManager : IPacketManager
     private async Task StopThreadsAsync()
     {
         /* Cancel current transfers. */
-        await cancelSrc.CancelAsync();
+        await threadCts.CancelAsync();
         usbIf.Cancel();
         
         /* Wait for both threads to exit. */
@@ -413,7 +428,7 @@ public class UsbPacketManager : IPacketManager
             Packets.Packet pkt;
             try
             {
-                pkt = serviceManager.PopSendPacketAsync(cancelSrc.Token).Result;
+                pkt = serviceManager.PopSendPacketAsync(threadCts.Token).Result;
             }
             catch(AggregateException)
             {
@@ -426,7 +441,7 @@ public class UsbPacketManager : IPacketManager
 
             /* Send it. */
             Error err = SendPacketImpl(pkt);
-            if (cancelSrc.Token.IsCancellationRequested)
+            if (threadCts.Token.IsCancellationRequested)
             {
                 cancelSem.Release();
                 return;
@@ -455,7 +470,7 @@ public class UsbPacketManager : IPacketManager
 
             /* Wait for a message. */
             Error err = RecvPacketImpl(ref pkt);
-            if (cancelSrc.Token.IsCancellationRequested)
+            if (threadCts.Token.IsCancellationRequested)
             {
                 cancelSem.Release();
                 return;

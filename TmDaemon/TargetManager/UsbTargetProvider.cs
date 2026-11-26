@@ -17,7 +17,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private SemaphoreSlim asyncLock = new(1);
 
-    private Dictionary<LocationId, Target.Target> connectedTargets = new();
+    private Dictionary<string, Target.Target> connectedTargets = new();
 
     private UsbContext context;
 
@@ -42,10 +42,10 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     
     private async Task<(Target.Target?, bool)> CreateTargetAsyncUnsafe(UsbDevice device)
     {
-        LocationId id;
+        string id;
         try
         {
-            id = device.LocationId;
+            id = device.LocationId.ToString();
         }
         catch (UsbException e)
         {
@@ -228,7 +228,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                 await targ.ConnectAsync();
 
                 /* Add it to the connected list. */
-                var id = ((UsbPacketManager)targ.GetPacketManager()).UsbLocationId;
+                var id = ((UsbPacketManager)targ.GetPacketManager()).UsbLocationId.ToString();
                 connectedTargets[id] = targ;
 
                 /* Dispose of the last selected target. */
@@ -307,19 +307,32 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             if (targ == null)
                 return;
 
-            /* Notify the manager. */
-            var info = targ.Info;
-            parent.NotifyDiscoveryEvent(info, true);
-
-            /* Save info the target info ourself. */
-            discoveryInfos[dev.LocationId] = info;
-
-            /* Destroy the target if it was a preexisting connection. */
-            if (isNew)
+            /* If it's not a new target, resume if it's suspended. */
+            Debug.Assert(targ.Info != null);
+            Console.WriteLine("{0}", isNew);
+            if (!isNew && targ.Info.Status == TargetStatus.Asleep)
             {
-                await targ.CloseAsync();
-                await targ.DisposeAsync();
+                dev.Open();
+                await targ.NotifyResume(dev);
             }
+            else
+            {
+                /* Notify the manager. */
+                var info = targ.Info;
+                parent.NotifyDiscoveryEvent(info, true);
+
+                /* Save info the target info ourself. */
+                discoveryInfos[dev.LocationId] = info;
+
+                /* Destroy the target if it was a preexisting connection. */
+                if (isNew)
+                {
+                    await targ.CloseAsync();
+                    await targ.DisposeAsync();
+                }
+            }
+            
+
         }
         else
         {
@@ -369,7 +382,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         //using var l = AsyncLockHolder.Enter(asyncLock);
         
         /* Do nothing if it isn't registered. */
-        var id = child.UsbLocationId;
+        var id = child.UsbLocationId.ToString();
         if (!connectedTargets.ContainsKey(id))
             return;
         
@@ -382,7 +395,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         //using var l = AsyncLockHolder.Enter(asyncLock);
         
         /* Do nothing if it isn't registered. */
-        var id = child.UsbLocationId;
+        var id = child.UsbLocationId.ToString();
         if (!connectedTargets.ContainsKey(id))
             return;
 
