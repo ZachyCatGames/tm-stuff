@@ -8,20 +8,13 @@ public class EventRecorder<T> : IObserver<T>
     
     private readonly CancellationToken cancelToken;
 
-    public EventRecorder(CancellationToken cancelToken)
-    {
-        this.cancelToken = cancelToken;
-    }
+    public EventRecorder(CancellationToken cancelToken) => this.cancelToken = cancelToken;
     
     public void OnCompleted()
-    {
-        
-    }
+    {}
 
     public void OnError(Exception error)
-    {
-        
-    }
+    {}
 
     public void OnNext(T value) => eventQueue.Writer.TryWrite(value);
 

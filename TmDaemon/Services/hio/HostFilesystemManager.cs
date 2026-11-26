@@ -41,7 +41,7 @@ public class HostFilesystemManager : IDisposable {
                 amodei |= (int)FileAccess.Read;
             if ((mode & 2) != 0)
                 amodei |= (int)FileAccess.Write;
-            amode = (FileAccess)amodei;
+            this.amode = (FileAccess)amodei;
 
             /* Open the file. */
             try {
@@ -64,17 +64,13 @@ public class HostFilesystemManager : IDisposable {
 
         public override void Dispose()
         {
-#if HTCS_TASK_DEBUG
-            Console.WriteLine("[htcs] Closing fd={0}", fd);
-#endif
-            
             Close();
         }
         
         public void Close()
         {
             /* Destroy the stream. */
-            accessor.Dispose();
+            this.accessor.Dispose();
         }
 
         public async Task ReadFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
@@ -84,13 +80,13 @@ public class HostFilesystemManager : IDisposable {
                 throw new HioException(HioErrorCode.OutOfRange);
             
             /* Can't read a write-only file. */
-            if (amode != FileAccess.Read && amode != FileAccess.ReadWrite)
+            if (this.amode != FileAccess.Read && this.amode != FileAccess.ReadWrite)
                 throw new HioException(HioErrorCode.TargetLocked); // idk??
             
             try
             {
-                accessor.Seek(fileOffs, SeekOrigin.Begin);
-                await accessor.ReadExactlyAsync(buf, bufOffs, readSize, ct);
+                this.accessor.Seek(fileOffs, SeekOrigin.Begin);
+                await this.accessor.ReadExactlyAsync(buf, bufOffs, readSize, ct);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -105,13 +101,13 @@ public class HostFilesystemManager : IDisposable {
         public async Task WriteFileAsync(byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
         {
             /* Can't write a read-only file. */
-            if (amode != FileAccess.Write && amode != FileAccess.ReadWrite)
+            if (this.amode != FileAccess.Write && this.amode != FileAccess.ReadWrite)
                 throw new HioException(HioErrorCode.TargetLocked); // idk??
 
             try
             {
-                accessor.Seek(fileOffs, SeekOrigin.Begin);
-                await accessor.WriteAsync(buf, bufOffs, readSize, ct);
+                this.accessor.Seek(fileOffs, SeekOrigin.Begin);
+                await this.accessor.WriteAsync(buf, bufOffs, readSize, ct);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -123,17 +119,11 @@ public class HostFilesystemManager : IDisposable {
             }
         }
         
-        public Int64 GetFileSize() {
-            return accessor.Length;
-        }
+        public Int64 GetFileSize() => this.accessor.Length;
         
-        public void SetFileSize(Int64 size) {
-            accessor.SetLength(size);
-        }
+        public void SetFileSize(Int64 size) => this.accessor.SetLength(size);
         
-        public Task FlushFileAsync(CancellationToken ct) {
-            return accessor.FlushAsync(ct);
-        }
+        public Task FlushFileAsync(CancellationToken ct) => accessor.FlushAsync(ct);
         
         public void SetPriorityForFile(Int32 prio) {
             /* TODO: What is this? */
@@ -157,9 +147,9 @@ public class HostFilesystemManager : IDisposable {
         // Assuming mode is fs DirOpenMode?
         public DirectoryItem(int fd, string path, UInt32 mode) : base(fd, DescriptorType.Directory, path)
         {
-            readDirInfo  = (mode & 1) != 0;
-            readFileInfo = (mode & 2) != 0;
-            noFileSizes  = (mode & 4) != 0;
+            this.readDirInfo  = (mode & 1) != 0;
+            this.readFileInfo = (mode & 2) != 0;
+            this.noFileSizes  = (mode & 4) != 0;
         }
 
         public void Close()
@@ -173,10 +163,10 @@ public class HostFilesystemManager : IDisposable {
             Int64 count = 0;
             
             /* Add files. */
-            if (readFileInfo)
-                count += Directory.GetFiles(path).Length;
-            if (readDirInfo)
-                count += Directory.GetDirectories(path).Length;
+            if (this.readFileInfo)
+                count += Directory.GetFiles(this.path).Length;
+            if (this.readDirInfo)
+                count += Directory.GetDirectories(this.path).Length;
 
             return count;
         }
@@ -190,7 +180,7 @@ public class HostFilesystemManager : IDisposable {
 
             /* Iterate over directories. */
             int count = 0;
-            if (readDirInfo)
+            if (this.readDirInfo)
             {
                 foreach (var dirName in Directory.EnumerateDirectories(this.path))
                 {
@@ -212,7 +202,7 @@ public class HostFilesystemManager : IDisposable {
             }
             
             /* Iterate over files. */
-            if (readFileInfo && count != maxCount)
+            if (this.readFileInfo && count != maxCount)
             {
                 foreach (var fileName in Directory.EnumerateFiles(this.path))
                 {
@@ -223,7 +213,7 @@ public class HostFilesystemManager : IDisposable {
                     var info = new FileInfo(fileName);
                     
                     /* Zero file size if requested. */
-                    Int64 size = noFileSizes ? 0 : info.Length;
+                    Int64 size = this.noFileSizes ? 0 : info.Length;
                     
                     entries.AddLast(new HioDirectoryEntry(
                         HioDirectoryEntryType.File,
@@ -255,31 +245,28 @@ public class HostFilesystemManager : IDisposable {
     public const int OpenFileCountMax = 256;
     
     private FileDescriptorManager<FsItem> fsItems = new(OpenFileCountMax);
-    private Regex driveRegex = new Regex("^/[aA-zZ]:/");
-    private Regex driveRegex2 = new Regex("^[aA-zZ]:/");
+    private static readonly Regex driveRegex = new Regex("^/[aA-zZ]:/");
+    private static readonly Regex driveRegex2 = new Regex("^[aA-zZ]:/");
     
-    FileItem GetFileItemOrThrowNotFound(int fd)
+    private FileItem GetFileItemOrThrowNotFound(int fd)
     {
-        if (fd < OpenFileCountMax && fsItems[fd] is FsItem f && f.type == DescriptorType.File)
+        if (fd < OpenFileCountMax && this.fsItems[fd] is FsItem f && f.type == DescriptorType.File)
             return (FileItem)f;
 
         throw new HioException(HioErrorCode.InvalidFileDescriptor);
     }
     
-    DirectoryItem GetDirectoryItemOrThrowNotFound(int fd)
+    private DirectoryItem GetDirectoryItemOrThrowNotFound(int fd)
     {
-        if (fd < OpenFileCountMax && fsItems[fd] is FsItem f && f.type == DescriptorType.Directory)
+        if (fd < OpenFileCountMax && this.fsItems[fd] is FsItem f && f.type == DescriptorType.Directory)
             return (DirectoryItem)f;
 
         throw new HioException(HioErrorCode.InvalidFileDescriptor);
     }
 
-    bool ItemExists(string path)
-    {
-        return FileExists(path) || DirectoryExists(path);
-    }
+    private static bool ItemExists(string path) => FileExists(path) || DirectoryExists(path);
 
-    string GetRealPath(string path)
+    private static string GetRealPath(string path)
     {
         /* Linux doesn't like backslashes in paths (based). */
         path = path.Replace('\\', '/');
@@ -302,26 +289,23 @@ public class HostFilesystemManager : IDisposable {
     
     public HostFilesystemManager() {}
 
-    public void Dispose()
-    {
-        CloseAll();
-    }
+    public void Dispose() => this.CloseAll();
 
     public void CloseAll()
     {
         /* Close all used file descriptors. */
-        var used = fsItems.GetUsedDescriptors();
+        var used = this.fsItems.GetUsedDescriptors();
         foreach (int fd in used)
         {
-            Debug.Assert(fsItems[fd] != null);
-            fsItems[fd].Dispose();
-            fsItems[fd] = null;
+            Debug.Assert(this.fsItems[fd] != null);
+            this.fsItems[fd].Dispose();
+            this.fsItems[fd] = null;
         }
     }
     
     public Int64 OpenFile(string path, UInt32 mode) {
         /* Register the file. */
-        int fd = fsItems.AllocateFileDescriptor();
+        int fd = this.fsItems.AllocateFileDescriptor();
         if (fd < 0)
             throw new HioException(HioErrorCode.AllocationFailed);
 
@@ -330,7 +314,7 @@ public class HostFilesystemManager : IDisposable {
         Console.WriteLine("[hio] OpenFile: {0}, fd={1}", path, fd);
 #endif
         var file = new FileItem(fd, GetRealPath(path), mode);
-        fsItems[fd] = file;
+        this.fsItems[fd] = file;
         
         return fd;
     }
@@ -341,13 +325,13 @@ public class HostFilesystemManager : IDisposable {
         Console.WriteLine("[hio] Closing fd={0}", fd);
 #endif
         /* Close the file. */
-        GetFileItemOrThrowNotFound(fd).Close();
+        this.GetFileItemOrThrowNotFound(fd).Close();
         
         /* Remove from the descriptor list. */
-        fsItems[fd] = null;
+        this.fsItems[fd] = null;
     }
     
-    public void CreateFile(string path, Int64 size)
+    public static void CreateFile(string path, Int64 size)
     {
         path = GetRealPath(path);
         Console.WriteLine(path);
@@ -378,7 +362,7 @@ public class HostFilesystemManager : IDisposable {
         }
     }
     
-    public bool FileExists(string path) {
+    public static bool FileExists(string path) {
         try {
             return File.Exists(GetRealPath(path));
         }
@@ -388,7 +372,7 @@ public class HostFilesystemManager : IDisposable {
         }
     }
     
-    public void DeleteFile(string path) {
+    public static void DeleteFile(string path) {
         path = GetRealPath(path);
         if (!FileExists(path))
             throw new HioException(HioErrorCode.PathNotFound);
@@ -408,7 +392,7 @@ public class HostFilesystemManager : IDisposable {
         }
     }
     
-    public void RenameFile(string src, string dst) {
+    public static void RenameFile(string src, string dst) {
         src = GetRealPath(src);
         dst = GetRealPath(dst);
         try
@@ -431,7 +415,7 @@ public class HostFilesystemManager : IDisposable {
     }
     
     int k = -8;
-    public Int32 GetIOType(string path) {
+    public static Int32 GetIOType(string path) {
         path = GetRealPath(path);
         if (Directory.Exists(path))
             return 0;
@@ -440,50 +424,50 @@ public class HostFilesystemManager : IDisposable {
         return -1;
     }
     
-    public FileTimeStamp GetFileTimeStamp(string path) {
+    public static FileTimeStamp GetFileTimeStamp(string path) {
         // TODO: what is the structure of this?
         return new FileTimeStamp(0,0,0);
     }
     
     public Task ReadFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).ReadFileAsync(buf, fileOffs, bufOffs, readSize, ct);
+        return this.GetFileItemOrThrowNotFound(fd).ReadFileAsync(buf, fileOffs, bufOffs, readSize, ct);
     }
     
     public Task WriteFileAsync(int fd, byte[] buf, Int64 fileOffs, int bufOffs, int readSize, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).WriteFileAsync(buf, fileOffs, bufOffs, readSize, ct);
+        return this.GetFileItemOrThrowNotFound(fd).WriteFileAsync(buf, fileOffs, bufOffs, readSize, ct);
     }
     
     public Int64 GetFileSize(int fd)
     {
-        return GetFileItemOrThrowNotFound(fd).GetFileSize();   
+        return this.GetFileItemOrThrowNotFound(fd).GetFileSize();   
     }
     
     public void SetFileSize(int fd, Int64 size)
     {
-        GetFileItemOrThrowNotFound(fd).SetFileSize(size);
+        this.GetFileItemOrThrowNotFound(fd).SetFileSize(size);
     }
     
     public Task FlushFileAsync(int fd, CancellationToken ct)
     {
-        return GetFileItemOrThrowNotFound(fd).FlushFileAsync(ct);
+        return this.GetFileItemOrThrowNotFound(fd).FlushFileAsync(ct);
     }
     
     public void SetPriorityForFile(int fd, Int32 prio)
     {
-        GetFileItemOrThrowNotFound(fd).SetPriorityForFile(prio);   
+        this.GetFileItemOrThrowNotFound(fd).SetPriorityForFile(prio);   
     }
     
     public Int32 GetPriorityForFile(int fd)
     {
-        return GetFileItemOrThrowNotFound(fd).GetPriorityForFile();
+        return this.GetFileItemOrThrowNotFound(fd).GetPriorityForFile();
     }
     
     public int OpenDirectory(string path, UInt32 mode)
     {
         /* Register the directory object. */
-        int fd = fsItems.AllocateFileDescriptor();
+        int fd = this.fsItems.AllocateFileDescriptor();
         if (fd < 0)
             throw new HioException(HioErrorCode.AllocationFailed);
         
@@ -500,13 +484,13 @@ public class HostFilesystemManager : IDisposable {
     public void CloseDirectory(int fd)
     {
         /* Close the directory. */
-        GetDirectoryItemOrThrowNotFound(fd).Close();
+        this.GetDirectoryItemOrThrowNotFound(fd).Close();
         
         /* Remove from the descriptor list. */
-        fsItems[fd] = null;
+        this.fsItems[fd] = null;
     }
     
-    public bool DirectoryExists(string path)
+    public static bool DirectoryExists(string path)
     {
         try {
             return Directory.Exists(GetRealPath(path));
@@ -517,7 +501,7 @@ public class HostFilesystemManager : IDisposable {
         }
     }
     
-    public void CreateDirectory(string path)
+    public static void CreateDirectory(string path)
     {
         path = GetRealPath(path);
         if (ItemExists(path))
@@ -532,7 +516,7 @@ public class HostFilesystemManager : IDisposable {
     }
     
     
-    public void DeleteDirectory(string path, bool recursive)
+    public static void DeleteDirectory(string path, bool recursive)
     {
         path = GetRealPath(path);
         try
@@ -553,7 +537,7 @@ public class HostFilesystemManager : IDisposable {
         }
     }
     
-    public void RenameDirectory(string src, string dst)
+    public static void RenameDirectory(string src, string dst)
     {
         src = GetRealPath(src);
         dst = GetRealPath(dst);
@@ -581,22 +565,22 @@ public class HostFilesystemManager : IDisposable {
     
     public Int64 GetDirectoryEntryCount(int fd)
     {
-        return GetDirectoryItemOrThrowNotFound(fd).GetDirectoryEntryCount();
+        return this.GetDirectoryItemOrThrowNotFound(fd).GetDirectoryEntryCount();
     }
     
     public LinkedList<HioDirectoryEntry> ReadDirectory(int fd, int maxCount)
     {
-        return GetDirectoryItemOrThrowNotFound(fd).ReadDirectory(maxCount);
+        return this.GetDirectoryItemOrThrowNotFound(fd).ReadDirectory(maxCount);
     }
     
     public void SetPriorityForDirectory(int fd, Int32 prio)
     {
-        GetDirectoryItemOrThrowNotFound(fd).SetPriorityForDirectory(prio);
+        this.GetDirectoryItemOrThrowNotFound(fd).SetPriorityForDirectory(prio);
     }
     
     public Int32 GetPriorityForDirectory(int fd)
     {
-        return GetDirectoryItemOrThrowNotFound(fd).GetPriorityForDirectory();
+        return this.GetDirectoryItemOrThrowNotFound(fd).GetPriorityForDirectory();
     }
     
 }

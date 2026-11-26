@@ -14,7 +14,7 @@ public class HostIOOpenTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 inFd);
@@ -29,7 +29,7 @@ public class HostIOOpenTask : ServiceTask
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try
         {
-            fd = mgr.OpenFile(path, mode);
+            fd = this.mgr.OpenFile(path, mode);
         }
         catch (HioException excpt)
         {
@@ -41,15 +41,13 @@ public class HostIOOpenTask : ServiceTask
         }
         
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write((UInt64)0);
-        reply.WriteHeader();
-        reply.Print();
         
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

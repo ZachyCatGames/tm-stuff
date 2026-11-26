@@ -23,5 +23,5 @@ public class AsyncLockHolder : IDisposable
         return new AsyncLockHolder(sem);
     }
 
-    public void Dispose() => sem.Release();
+    public void Dispose() => this.sem.Release();
 }

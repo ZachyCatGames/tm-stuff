@@ -9,8 +9,6 @@ public class ServiceManager
     public const int SendPacketsCountMax = 20;
     public const int RecvPacketsCountMax = 20;
     public const int JobCountMax         = 20;
-
-    private bool initialized = false;
     
     private bool          isDone = false;
     private SemaphoreSlim doneEv = new(0);
@@ -42,88 +40,85 @@ public class ServiceManager
 
     private class WorkerCmd
     {
-        public CmdType type;
-        public Packets.Packet? pkt;
+        public CmdType Type;
+        public Packets.Packet? Pkt;
 
         public WorkerCmd(CmdType type, Packets.Packet pkt)
         {
-            this.type = type;
-            this.pkt = pkt;
+            this.Type = type;
+            this.Pkt = pkt;
         }
 
-        public WorkerCmd(CmdType type)
-        {
-            this.type = type;
-        }
+        public WorkerCmd(CmdType type) => this.Type = type;
     }
     
     public ServiceManager()
     {
         for (int i = 0; i < SendPacketsCountMax; i++)
         {
-            freePacketsForSend.Add(new Packets.Packet(freePacketsForSend));
+            this.freePacketsForSend.Add(new Packets.Packet(this.freePacketsForSend));
         }
 
         for (int i = 0; i < RecvPacketsCountMax; i++)
         {
-            freePacketsForRecv.Add(new Packets.Packet(freePacketsForRecv));
+            this.freePacketsForRecv.Add(new Packets.Packet(this.freePacketsForRecv));
         }
         
         /* Start the worker thread. */
-        workThread = new(WorkThreadFunc);
-        workThread.Start();
+        this.workThread = new(this.WorkThreadFunc);
+        this.workThread.Start();
     }
     
     public void Finalize()
     {
         /* Notify the worker that we're done. */
-        cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.Close));
+        this.cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.Close));
 
         /* Wait for the thread to finish. */
-        workThread.Join();
+        this.workThread.Join();
     }
     
     /* External service/task management. */
-    public void RegisterService(IService srv) => services.Add(srv);
+    public void RegisterService(IService srv) => this.services.Add(srv);
 
     public void RegisterNewTask(ServiceTask task)
     {
-        taskList.AddTask(task);
+        this.taskList.AddTask(task);
         task.StartImpl();
     }
 
     public async Task CancelAllTasksAsync()
     {
         //cancelTasksSem = new(0);
-        cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.CancelAllTasks));
-        await cancelTasksSem.WaitAsync();
+        this.cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.CancelAllTasks));
+        await this.cancelTasksSem.WaitAsync();
     }
     
     /* Packet allocators. */
     public Packets.Packet AllocRecvPacket()
     {
-        Packet pkt = freePacketsForRecv.Take();
+        Packet pkt = this.freePacketsForRecv.Take();
         pkt.Reset();
         return pkt;
     }
 
     public async Task<Packets.Packet> AllocRecvPacketAsync()
     {
-        Packet pkt = await freePacketsForRecv.TakeAsync();
+        Packet pkt = await this.freePacketsForRecv.TakeAsync();
         pkt.Reset();
         return pkt;
     }
 
     public Packets.Packet AllocSendPacket()
     {
-        Packet pkt = freePacketsForSend.Take();
+        Packet pkt = this.freePacketsForSend.Take();
         pkt.Reset();
         return pkt;
     }
 
     public async Task<Packets.Packet> AllocSendPacketAsync()
     {
-        Packet pkt = await freePacketsForSend.TakeAsync();
+        Packet pkt = await this.freePacketsForSend.TakeAsync();
         pkt.Reset();
         return pkt;
     }
@@ -132,19 +127,19 @@ public class ServiceManager
     public void SendPacket(Packets.Packet pkt)
     {
         pkt.WriteHeader();
-        sendQueue.Writer.TryWrite(pkt);
+        this.sendQueue.Writer.TryWrite(pkt);
     }
 
     public async Task SendPacketAsync(Packets.Packet pkt)
     {
         pkt.WriteHeader();
-        await sendQueue.Writer.WriteAsync(pkt);
+        await this.sendQueue.Writer.WriteAsync(pkt);
     }
     
     /* These are for the packet manager. */
-    public void OnRecvPacket(Packets.Packet pkt) => cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
+    public void OnRecvPacket(Packets.Packet pkt) => this.cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
-    public async Task<Packets.Packet> PopSendPacketAsync(CancellationToken ct) => await sendQueue.Reader.ReadAsync(ct);
+    public async Task<Packets.Packet> PopSendPacketAsync(CancellationToken ct) => await this.sendQueue.Reader.ReadAsync(ct);
     
     private async void WorkThreadFunc()
     {
@@ -155,26 +150,26 @@ public class ServiceManager
             WorkerCmd workerCmd;
             try
             {
-                workerCmd = await cmdQueue.Reader.ReadAsync();
+                workerCmd = await this.cmdQueue.Reader.ReadAsync();
             }
             catch (OperationCanceledException)
             {
-                Debug.Assert(isDone);
+                Debug.Assert(this.isDone);
                 break;
             }
             
             /* Remove any finished tasks. */
             taskList.RemoveIf((task) => task.IsDone());
 
-            switch (workerCmd.type)
+            switch (workerCmd.Type)
             {
                 case CmdType.NewPacket:
-                    Debug.Assert(workerCmd.pkt != null);
-                    ProcessRecvPacketImpl(workerCmd.pkt);
+                    Debug.Assert(workerCmd.Pkt != null);
+                    ProcessRecvPacketImpl(workerCmd.Pkt);
                     break;
                 case CmdType.CancelAllTasks:
                     CancelAllTasksImpl();
-                    cancelTasksSem.Release();
+                    this.cancelTasksSem.Release();
                     break;
                 case CmdType.Close:
                     done = true;
@@ -216,13 +211,13 @@ public class ServiceManager
         {
             /* Dispatch the packet to its target Service. */
             var serviceId = pkt.serviceId;
-            foreach (var service in services)
+            foreach (var service in this.services)
             {
                 if (service.AcceptsServicesId(serviceId))
                 {
                     if (service.ProcessNewRequest(pkt) is ServiceTask task)
                     {
-                        RegisterNewTask(task);
+                        this.RegisterNewTask(task);
                         task.SignalIncomingPacket(pkt);
                     }
                     else

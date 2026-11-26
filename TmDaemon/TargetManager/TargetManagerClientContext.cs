@@ -7,7 +7,7 @@ public class TargetManagerClientContext
 {
     public readonly UInt64 Flags;
     
-    private CancellationTokenSource cancelSrc = new();
+    private CancellationTokenSource cts = new();
     
     public bool HasTargetEvent => TargetEventContext != null;
     public bool HasDiscovery => TargetDiscoveryContext != null;
@@ -22,13 +22,13 @@ public class TargetManagerClientContext
         /* Initialize target event context if needed. */
         if ((flags & (UInt64)ManagerContextFlags.TargetEvent) != 0)
         {
-            TargetEventContext = new(cancelSrc.Token);
+            TargetEventContext = new(cts.Token);
         }
         if ((flags & (UInt64)ManagerContextFlags.TargetDiscover) != 0)
         {
-            TargetDiscoveryContext = new(cancelSrc.Token);
+            TargetDiscoveryContext = new(cts.Token);
         }
     }
     
-    public void CancelPop() => cancelSrc.Cancel();
+    public void CancelPop() => cts.Cancel();
 }

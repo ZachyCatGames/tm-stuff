@@ -9,7 +9,7 @@ public class PortEvent
 
     public PortEvent(PortInfo info, PortEventType eventType)
     {
-        PortInfo  = info;
-        EventType = eventType;
+        this.PortInfo  = info;
+        this.EventType = eventType;
     }
 }

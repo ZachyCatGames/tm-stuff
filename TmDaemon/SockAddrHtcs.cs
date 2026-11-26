@@ -17,16 +17,16 @@ public class SockAddrHtcs
 
     public SockAddrHtcs(HtcsAddressFamily fam, string peer, string port)
     {
-        family   = fam;
-        peerName = peer;
-        portName = port;
+        this.family   = fam;
+        this.peerName = peer;
+        this.portName = port;
     }
 
     public byte[] ToBytes()
     {
         var buf = new byte[PackedSize];
-        ASCIIEncoding.ASCII.GetBytes(peerName).CopyTo(buf, 0x2);
-        ASCIIEncoding.ASCII.GetBytes(portName).CopyTo(buf, 0x22);
+        ASCIIEncoding.ASCII.GetBytes(this.peerName).CopyTo(buf, 0x2);
+        ASCIIEncoding.ASCII.GetBytes(this.portName).CopyTo(buf, 0x22);
         return buf;
     }
 

@@ -14,7 +14,7 @@ public class HostIOSetPriorityTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -27,7 +27,7 @@ public class HostIOSetPriorityTask : ServiceTask
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try
         {
-            mgr.SetPriorityForFile((int)fd, prio);
+            this.mgr.SetPriorityForFile((int)fd, prio);
         }
         catch (HioException excpt)
         {
@@ -35,15 +35,13 @@ public class HostIOSetPriorityTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write((UInt64)0);
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

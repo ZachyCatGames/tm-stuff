@@ -4,9 +4,9 @@ namespace Test.Services.env;
 
 public class HostEnvService : ServiceBase
 {
-    public const uint serviceId = 0xC191DAC9;
+    public const uint ServiceId = 0xC191DAC9;
 
-    public HostEnvService(ServiceManager mgr) : base(serviceId, mgr)
+    public HostEnvService(ServiceManager mgr) : base(ServiceId, mgr)
     {}
 
     public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)

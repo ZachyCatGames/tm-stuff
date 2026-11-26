@@ -30,10 +30,10 @@ public class HioDirectoryEntry {
         {
             using (var writer = new BinaryWriter(ms))
             {
-                writer.Write((byte)type);
-                writer.Write(Encoding.UTF8.GetBytes(name));
+                writer.Write((byte)this.type);
+                writer.Write(Encoding.UTF8.GetBytes(this.name));
                 writer.Write((byte)0); // terminator
-                writer.Write(size);
+                writer.Write(this.size);
                 outPos = (int)ms.Position;
             }
         }

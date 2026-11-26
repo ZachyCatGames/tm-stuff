@@ -11,7 +11,7 @@ public class HtcsListenTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int32 fd);
@@ -27,7 +27,7 @@ public class HtcsListenTask : ServiceTask
         Int32 retval = 0;
         try
         {
-            htcsManager.Listen(fd, backlogCount);
+            this.htcsManager.Listen(fd, backlogCount);
         }
         catch (HtcsException excpt)
         {
@@ -36,17 +36,16 @@ public class HtcsListenTask : ServiceTask
         }
 
         /* Allocate a reply packet. */
-        var reply = await AllocSendPacketAsync();
+        var reply = await this.AllocSendPacketAsync();
 
         /* Setup our reply. */
         reply.isInitiate = false;
         reply.Write(fd); // I think these are the same?
         reply.Write(retval);
         reply.Write(result);
-        reply.WriteHeader();
 
         /* Send it off. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 
 }

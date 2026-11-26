@@ -11,18 +11,18 @@ public class HostDirectoryIOReadTask : ServiceTask
         this.mgr = mgr;
     }
     
-    async void SendErrorImpl(HioErrorCode err)
+    async Task SendErrorImpl(HioErrorCode err)
     {
-        Packets.Packet pkt = this.AllocRecvPacket();
+        Packets.Packet pkt = await this.AllocSendPacketAsync();
         pkt.Write((Int32)err);
         pkt.WriteHeader();
-        await SendPacketAsync(pkt);
+        await this.SendPacketAsync(pkt);
     }
 
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -35,7 +35,7 @@ public class HostDirectoryIOReadTask : ServiceTask
         LinkedList<HioDirectoryEntry> entries;
         try
         {
-            entries = mgr.ReadDirectory((int)fd, count);
+            entries = this.mgr.ReadDirectory((int)fd, count);
         }
         catch(HioException excpt)
         {
@@ -45,10 +45,10 @@ public class HostDirectoryIOReadTask : ServiceTask
         }
         
         foreach (var entry in entries) {
-            Packets.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await this.AllocSendPacketAsync();
             reply.Write((Int32)0);
             reply.AdvancePosition(entry.WriteTo(reply.GetBuffer(), Packets.Packet.HeaderSize + 0x4));
-            await SendPacketAsync(reply);
+            await this.SendPacketAsync(reply);
         }
 
     }

@@ -12,7 +12,6 @@ public interface IPacketManager : IDisposable
 {
     public Task ConnectAsync();
     public Task DisconnectAsync();
-    public Task CloseAsync();
 
     public Task NotifySuspendAsync();
     public Task NotifyResumeAsync(object obj);

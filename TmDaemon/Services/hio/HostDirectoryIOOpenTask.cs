@@ -14,7 +14,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fdIn);
@@ -32,7 +32,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
         int fd = -1;
         try
         {
-            fd = mgr.OpenDirectory(path, flags);
+            fd = this.mgr.OpenDirectory(path, flags);
         }
         catch (HioException excpt)
         {
@@ -40,7 +40,7 @@ public class HostDirectoryIOOpenTask : ServiceTask
         }
         
         /* Allocate a packet. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         
         /* Setup our reply. */
         reply.isInitiate = false;
@@ -48,11 +48,8 @@ public class HostDirectoryIOOpenTask : ServiceTask
         reply.Write((Int32)result);
         reply.Write((Int64)0); // unused?
         reply.Write(id);
-        reply.WriteHeader();
-
-        reply.Print();
 
         /* Send reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

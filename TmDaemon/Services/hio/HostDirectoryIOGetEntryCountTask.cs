@@ -14,7 +14,7 @@ public class HostDirectoryIOGetEntryCountTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -27,7 +27,7 @@ public class HostDirectoryIOGetEntryCountTask : ServiceTask
         Int64 count = -1;
         try
         {
-            count = mgr.GetDirectoryEntryCount((int)fd);
+            count = this.mgr.GetDirectoryEntryCount((int)fd);
         }
         catch (HioException excpt)
         {
@@ -35,15 +35,13 @@ public class HostDirectoryIOGetEntryCountTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write(count);
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

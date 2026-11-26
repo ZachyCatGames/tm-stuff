@@ -4,23 +4,24 @@ namespace Test.Services;
 
 public abstract class ServiceTask
 {
-    public readonly uint      serviceId;
+    public uint               serviceId;
     public readonly TaskType  type;
     public readonly TaskState state;
     public readonly uint      taskId;
     public readonly uint      priority;
 
-    public bool hasFollowup;
-
-    protected readonly IService parent;
-
-    private PacketQueue packets = new(20);
-
-    public Task task;
-
     private CancellationTokenSource cancelSrc = new();
 
     private readonly ServiceManager manager;
+    
+    
+    private PacketQueue packets = new(20);
+    
+    public bool hasFollowup;
+
+    public Task task;
+    
+    protected readonly IService parent;
     
     public bool IsStarted { get; private set; }
 
@@ -39,81 +40,60 @@ public abstract class ServiceTask
     
     public void Cancel() => cancelSrc.Cancel();
 
-    private async Task StartImplAsync()
-    {
-        /* Start the task. */
-        await Run();
-        
-        /* Clear any pending packets. */
-        while (HasPendingRecvPacket())
-        {
-            Packet pkt = await WaitForPacket();
-            pkt.Release();
-        }
-    }
-
     public virtual void StartImpl()
     {
-        task = StartImplAsync();
-        IsStarted = true;
+        this.task = StartImplAsync();
+        this.IsStarted = true;
     }
 
-    public bool IsDone() => IsStarted && (task.IsCompleted || task.IsCanceled);
+    public bool IsDone() => this.IsStarted && (this.task.IsCompleted || this.task.IsCanceled);
     
-    public bool IsCancelled => IsStarted && task.IsCanceled;
+    public bool IsCancelled => this.IsStarted && this.task.IsCanceled;
 
-    public void WaitDone() => task.Wait();
+    public void WaitDone() => this.task.Wait();
     
-    public async Task WaitDoneAsync() => await task;
+    public async Task WaitDoneAsync() => await this.task;
 
     protected abstract Task Run();
 
-    protected ServiceManager GetManager() => parent.GetManager();
+    protected ServiceManager GetManager() => this.parent.GetManager();
     
-    private void InitPacketImpl(Packets.Packet pkt)
+    private void InitPacketImpl(Packet pkt)
     {
-        pkt.serviceId = serviceId;
-        pkt.taskId    = taskId;
-        pkt.taskType  = type;
+        pkt.serviceId = this.serviceId;
+        pkt.taskId    = this.taskId;
+        pkt.taskType  = this.type;
         pkt.Reset();
     }
 
-    protected CancellationToken GetCancelToken() => cancelSrc.Token;
-
-    protected Packets.Packet AllocSendPacket()
-    {
-        Packets.Packet pkt = GetManager().AllocSendPacket();
-        InitPacketImpl(pkt);
-        return pkt;
-    }
-
-    protected async Task<Packets.Packet> AllocSendPacketAsync()
-    {
-        Packets.Packet pkt = await GetManager().AllocSendPacketAsync();
-        InitPacketImpl(pkt);
-        return pkt;
-    }
-
-    protected Packets.Packet AllocRecvPacket()
-    {
-        Packets.Packet pkt = GetManager().AllocRecvPacket();
-        InitPacketImpl(pkt);
-        return pkt;
-    }
+    protected CancellationToken GetCancelToken() => this.cancelSrc.Token;
     
-    protected async Task<Packets.Packet> AllocRecvPacketAsync()
+    protected async Task<Packet> AllocSendPacketAsync()
     {
-        Packets.Packet pkt = await GetManager().AllocRecvPacketAsync();
-        InitPacketImpl(pkt);
+        Packets.Packet pkt = await this.GetManager().AllocSendPacketAsync();
+        this.InitPacketImpl(pkt);
         return pkt;
     }
 
-    protected void SendPacket(Packets.Packet pkt) => parent.GetManager().SendPacket(pkt);
+    protected async Task<Packet> AllocRecvPacketAsync() => await this.GetManager().AllocRecvPacketAsync();
+
+    protected Task SendPacketAsync(Packet pkt) => this.parent.GetManager().SendPacketAsync(pkt);
+
+    public void SignalIncomingPacket(Packet pkt) => this.packets.Add(pkt);
+
+    protected bool HasPendingRecvPacket() => this.packets.Count != 0;
+    protected async Task<Packet> WaitForPacket() => await this.packets.TakeAsync();
     
-    protected Task SendPacketAsync(Packets.Packet pkt) => parent.GetManager().SendPacketAsync(pkt);
-
-    public void SignalIncomingPacket(Packets.Packet pkt) => packets.Add(pkt);
-
-    protected bool HasPendingRecvPacket() => packets.Count != 0;
-    protected async Task<Packets.Packet> WaitForPacket() => await packets.TakeAsync();
+    private async Task StartImplAsync()
+    {
+        /* Start the task. */
+        await this.Run();
+        
+        /* Clear any pending packets. */
+        while (this.HasPendingRecvPacket())
+        {
+            Packet pkt = await this.WaitForPacket();
+            pkt.Release();
+        }
+    }
 }

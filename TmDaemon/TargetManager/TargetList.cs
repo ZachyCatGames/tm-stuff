@@ -10,7 +10,7 @@ public class TargetList : List<Target.Target>, IDisposable, IAsyncDisposable
     {
         foreach (var target in this)
         {
-            target.CloseAsync().Wait();
+            target.Disconnect();
             target.Dispose();
         }
     }
@@ -19,8 +19,8 @@ public class TargetList : List<Target.Target>, IDisposable, IAsyncDisposable
     {
         foreach (var targ in this)
         {
-            await targ.CloseAsync();
-            await targ.DisposeAsync();
+            await targ.DisconnectAsync();
+            targ.Dispose();
         }
     }
 }

@@ -5,17 +5,13 @@ namespace Test.Services.hio;
 // IO type == directory entry type
 public class HostIOGetIOTypeTask : ServiceTask
 {
-    HostFilesystemManager mgr;
-    
-    public HostIOGetIOTypeTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetIOType, taskId, 0)
-    {
-        this.mgr = mgr;
-    }
+    public HostIOGetIOTypeTask(IService parent, uint taskId) : base(parent, TaskType.GetIOType, taskId, 0)
+    {}
     
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -29,7 +25,7 @@ public class HostIOGetIOTypeTask : ServiceTask
         Int32 ioType = 0;
         try
         {
-            ioType = mgr.GetIOType(path);
+            ioType = HostFilesystemManager.GetIOType(path);
         }
         catch (HioException excpt)
         {
@@ -47,15 +43,13 @@ public class HostIOGetIOTypeTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write((UInt64)ioType);
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

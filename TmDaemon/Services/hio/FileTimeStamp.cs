@@ -20,9 +20,9 @@ public class FileTimeStamp {
         {
             using (var writer = new BinaryWriter(ms))
             {
-                writer.Write(v1);
-                writer.Write(v2);
-                writer.Write(v3);
+                writer.Write(this.v1);
+                writer.Write(this.v2);
+                writer.Write(this.v3);
             }
         }
     }

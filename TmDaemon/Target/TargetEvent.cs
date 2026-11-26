@@ -1,6 +1,6 @@
 namespace Test.Target;
 
-public class TargetEvent
+public struct TargetEvent
 {
     public TargetInfo      Info { get; set; }
     public TargetEventType EventType { get; set; }

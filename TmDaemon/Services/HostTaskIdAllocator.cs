@@ -13,11 +13,11 @@ public class HostTaskIdAllocator
 
     public uint AllocateTaskId()
     {
-        return (Interlocked.Increment(ref currentHostTaskId) & 0xFFFF) | TaskIdForHost;
+        return (Interlocked.Increment(ref this.currentHostTaskId) & 0xFFFF) | TaskIdForHost;
     }
 
     public uint AllocateTaskIdForManager()
     {
-        return (Interlocked.Increment(ref currentMgrTaskId) & 0xFFFF) | TaskIdForMgr;
+        return (Interlocked.Increment(ref this.currentMgrTaskId) & 0xFFFF) | TaskIdForMgr;
     }
 }

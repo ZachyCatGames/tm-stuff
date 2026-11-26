@@ -4,17 +4,14 @@ namespace Test.Services.hio;
 
 public class HostDirectoryIOExistsTask : ServiceTask
 {
-    HostFilesystemManager mgr;
-    
-    public HostDirectoryIOExistsTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.DirectoryExists, taskId, 0)
-    {
-        this.mgr = mgr;
-    }
+
+    public HostDirectoryIOExistsTask(IService parent, uint taskId) : base(parent, TaskType.DirectoryExists, taskId, 0)
+    {}
     
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -28,7 +25,7 @@ public class HostDirectoryIOExistsTask : ServiceTask
         bool exists = false;
         try
         {
-            exists = mgr.DirectoryExists(path);
+            exists = HostFilesystemManager.DirectoryExists(path);
         }
         catch (HioException excpt)
         {
@@ -36,15 +33,13 @@ public class HostDirectoryIOExistsTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write((UInt64)(exists ? 1 : 0)); // unused
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

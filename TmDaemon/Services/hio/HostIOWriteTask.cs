@@ -18,7 +18,7 @@ public class HostIOWriteTask : ServiceTask
         while (!done)
         {
             /* Get the packet. */
-            Packets.Packet pkt = await WaitForPacket();
+            Packets.Packet pkt = await this.WaitForPacket();
 
             /* Parse the packet. */
             pkt.Read(out Int64 fd);
@@ -32,7 +32,7 @@ public class HostIOWriteTask : ServiceTask
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.WriteFileAsync((int)fd, pkt.GetBuffer(), offset, Packets.Packet.HeaderSize + 0xD, size, GetCancelToken());
+                await this.mgr.WriteFileAsync((int)fd, pkt.GetBuffer(), offset, Packets.Packet.HeaderSize + 0xD, size, GetCancelToken());
             }
             catch (HioException excpt)
             {
@@ -65,14 +65,12 @@ public class HostIOWriteTask : ServiceTask
          * returned over the hipc interface, _shrugs_.
          * It's effectiely unused and this is my guess at its intent.
          */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(totalWritten); // unused
         reply.Write((Int32)err);
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using Test.Packets;
@@ -6,17 +7,14 @@ namespace Test.Services.test;
 
 public class ProxyService : ServiceBase
 {
-    readonly Thread workThread;
-    Socket connection;
-    readonly Socket sock;
-
-    Task sendTask;
-    Task recvTask;
+    private readonly Thread workThread;
+    private Socket? connection;
+    private readonly Socket sock;
     
-    PacketQueue freePackets = new(10);
-    PacketQueue sendPackets = new(10);
+    private PacketQueue freePackets = new(10);
+    private PacketQueue sendPackets = new(10);
     
-    CancellationTokenSource cancelSrc;
+    private CancellationTokenSource? cancelSrc;
     
     class ProxyTask : ServiceTask
     {
@@ -26,22 +24,22 @@ public class ProxyService : ServiceBase
         protected override async Task Run()
         {
             Packets.Packet pkt = await WaitForPacket();
-            await ((ProxyService)parent).sendPackets.AddAsync(pkt);
+            await ((ProxyService)this.parent).sendPackets.AddAsync(pkt);
         }
     }
 
     public ProxyService(uint serviceId, ServiceManager mgr) : base(serviceId, mgr)
     {
-        workThread = new(WorkThreadFunc);
+        workThread = new(this.WorkThreadFunc);
         sock = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
         for (int i = 0; i < 10; i++)
         {
-            freePackets.Add(new Packets.Packet(freePackets));
+            this.freePackets.Add(new Packets.Packet(freePackets));
         }
-        Console.WriteLine("cringe {0}", freePackets.GetFreeCount());
+        Console.WriteLine("cringe {0}", this.freePackets.GetFreeCount());
 
-        workThread.Start();
+        this.workThread.Start();
     }
 
     public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
@@ -50,14 +48,17 @@ public class ProxyService : ServiceBase
     }
 
     // send to console
-    async Task RecvWorker(Socket connection)
+    async Task RecvWorker()
     {
+        Debug.Assert(this.connection != null);
+        Debug.Assert(this.cancelSrc != null);
+        
         while (true)
         {
             Packets.Packet pkt;
             try
             {
-                pkt = await freePackets.TakeAsync(cancelSrc.Token);
+                pkt = await this.freePackets.TakeAsync(this.cancelSrc.Token);
             }
             catch (OperationCanceledException)
             {
@@ -106,20 +107,23 @@ public class ProxyService : ServiceBase
             pkt.Print();
             
             ProxyTask task = new(this, pkt.taskType, pkt.taskId, 0);
-            serviceManager.RegisterNewTask(task);
-            await serviceManager.SendPacketAsync(pkt);
+            this.serviceManager.RegisterNewTask(task);
+            await this.serviceManager.SendPacketAsync(pkt);
         }
     }
 
     // recv from console
-    async Task SendWorker(Socket connection)
+    async Task SendWorker()
     {
+        Debug.Assert(this.cancelSrc != null);
+        Debug.Assert(this.connection != null);
+        
         while(true)
         {
             Packets.Packet pkt;
             try
             {
-                pkt = await sendPackets.TakeAsync(cancelSrc.Token);
+                pkt = await this.sendPackets.TakeAsync(this.cancelSrc.Token);
             }
             catch(OperationCanceledException)
             {
@@ -150,26 +154,26 @@ public class ProxyService : ServiceBase
     
     async void WorkThreadFunc()
     {
-        sock.Bind(new IPEndPoint(0x0100007F, 9500));
-        sock.Listen();
-        Console.WriteLine("ProxyService for {0:X} listening on port {1}", serviceId, ((IPEndPoint)sock.LocalEndPoint).Port);
+        this.sock.Bind(new IPEndPoint(0x0100007F, 9500));
+        this.sock.Listen();
+        Console.WriteLine("ProxyService for {0:X} listening on port {1}", this.serviceId, ((IPEndPoint)sock.LocalEndPoint).Port);
 
-        connection = await sock.AcceptAsync();
+        this.connection = await sock.AcceptAsync();
 
         while (true)
         {
             cancelSrc = new CancellationTokenSource();
 
-            var recvTask = RecvWorker(connection);
-            var sendTask = SendWorker(connection);
+            var recvTask = this.RecvWorker();
+            var sendTask = this.SendWorker();
             
-            var newConn = await sock.AcceptAsync();
-            await cancelSrc.CancelAsync();
+            var newConn = await this.sock.AcceptAsync();
+            await this.cancelSrc.CancelAsync();
             await recvTask;
             await sendTask;
             //await sendTask;
-            connection.Close();
-            connection = newConn;
+            this.connection.Close();
+            this.connection = newConn;
             Console.WriteLine("Close conn");
         }
     }

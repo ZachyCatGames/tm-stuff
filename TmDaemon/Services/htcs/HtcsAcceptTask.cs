@@ -11,7 +11,7 @@ public class HtcsAcceptTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int32 fd);
@@ -27,7 +27,7 @@ public class HtcsAcceptTask : ServiceTask
         SockAddrHtcs? addr = null;
         try
         {
-            var ret = await htcsManager.AcceptAsync(fd, GetCancelToken());
+            var ret = await this.htcsManager.AcceptAsync(fd, GetCancelToken());
             addr = ret.Item2;
             retval = ret.Item1;
         }
@@ -42,7 +42,7 @@ public class HtcsAcceptTask : ServiceTask
 #endif
 
         /* Allocate a reply packet. */
-        var reply = await AllocSendPacketAsync();
+        var reply = await this.AllocSendPacketAsync();
 
         /* Address -> bytes. */
         byte[] addrBytes;
@@ -61,9 +61,8 @@ public class HtcsAcceptTask : ServiceTask
         reply.Write(retval);
         reply.Write(result);
         reply.Write(addrBytes);
-        reply.WriteHeader();
 
         /* Send it off. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

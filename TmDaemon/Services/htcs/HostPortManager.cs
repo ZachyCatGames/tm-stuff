@@ -26,7 +26,7 @@ public class HostPortManager
 
     HostPort? FindPortByName(string name)
     {
-        foreach (var port in hostPorts)
+        foreach (var port in this.hostPorts)
         {
             if (port.htcsPortName == name)
             {
@@ -39,7 +39,7 @@ public class HostPortManager
 
     public void RegisterPort(UInt32 ip, UInt16 port, string htcsPort, string htcsPeer)
     {
-        hostPorts.AddLast(new HostPort(ip, port, htcsPort, htcsPeer));
+        this.hostPorts.AddLast(new HostPort(ip, port, htcsPort, htcsPeer));
     }
 
     public ValueTask ConnectAsync(Socket sock, SockAddrHtcs addr, CancellationToken ct)

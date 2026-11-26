@@ -11,7 +11,7 @@ public class HtcsRecvTask : ServiceTask
     async Task Process()
     {
         /* Receive info packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         pkt.Read(out int fd);
         pkt.Read(out Int64 remaining);
@@ -27,7 +27,7 @@ public class HtcsRecvTask : ServiceTask
         while (remaining > 0)
         {
             /* Allocate a send packet. */
-            var reply = await AllocSendPacketAsync();
+            var reply = await this.AllocSendPacketAsync();
 
             /* Get data buffer. */
             Int64 curSize = Math.Min(remaining, Packets.Packet.DataMaxSize - 0xD);
@@ -38,7 +38,7 @@ public class HtcsRecvTask : ServiceTask
             Int32 retval = 0;
             try
             {
-                retval = await htcsManager.RecvPacketAsync(fd, buf, flags, GetCancelToken());
+                retval = await this.htcsManager.RecvPacketAsync(fd, buf, flags, GetCancelToken());
             }
             catch (HtcsException excpt)
             {
@@ -70,10 +70,9 @@ public class HtcsRecvTask : ServiceTask
             reply.Write(result);
             reply.Write(last);
             reply.AdvancePosition(readSize);
-            reply.WriteHeader();
 
             /* Send the packet to the device. */
-            await SendPacketAsync(reply);
+            await this.SendPacketAsync(reply);
 
             /* Decrement remaining. */
             remaining -= curSize;

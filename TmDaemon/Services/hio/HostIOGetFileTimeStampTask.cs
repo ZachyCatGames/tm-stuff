@@ -4,17 +4,13 @@ namespace Test.Services.hio;
 
 public class HostIOGetFileTimeStampTask : ServiceTask
 {
-    HostFilesystemManager mgr;
-    
-    public HostIOGetFileTimeStampTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.GetFileTimeStamp, taskId, 0)
-    {
-        this.mgr = mgr;
-    }
+    public HostIOGetFileTimeStampTask(IService parent, uint taskId) : base(parent, TaskType.GetFileTimeStamp, taskId, 0)
+    {}
     
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -28,7 +24,7 @@ public class HostIOGetFileTimeStampTask : ServiceTask
         FileTimeStamp ft = new(0,0,0);
         try
         {
-            ft = mgr.GetFileTimeStamp(path);
+            ft = HostFilesystemManager.GetFileTimeStamp(path);
         }
         catch (HioException excpt)
         {
@@ -36,17 +32,15 @@ public class HostIOGetFileTimeStampTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write(ft.v1);
         reply.Write(ft.v2);
         reply.Write(ft.v3);
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

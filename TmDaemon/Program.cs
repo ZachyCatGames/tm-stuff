@@ -17,50 +17,8 @@ using Test.Target;
 using Test.TargetManager;
 using static System.Console;
 
-var b = new BeaconPacket("");
-
-async Task<int> SleepFunc()
-{
-
-    await System.Threading.Tasks.Task.Delay(1000);
-    Console.WriteLine("Cringe");
-    return 1;
-}
-
-async Task TestFunc()
-{
-    
-    Console.WriteLine("World");
-}
-
-async Task CallerFunc()
-{
-    Console.WriteLine("TmDaemon");
-    await System.Threading.Tasks.Task.Delay(1000);
-    Console.WriteLine("Hello");
-}
-
-Task[] tsks = new Task[5];
-
-for (int i = 0; i < 5; i++)
-{
-    tsks[i] = CallerFunc();
-}
-
-Console.WriteLine("Started all");
-
-for (int i = 0; i < 5; i++)
-{
-    //await tsks[i];
-}
-
-Console.WriteLine("All Finished");
-//return;
-
 // See https://aka.ms/new-console-template for more information
 Console.WriteLine("Hello, World!");
-
-
 
 var builder = WebApplication.CreateBuilder(args);
 

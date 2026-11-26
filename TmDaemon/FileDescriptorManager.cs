@@ -8,27 +8,27 @@ public class FileDescriptorManager<T> {
     
     public FileDescriptorManager(int count)
     {
-        MaxObjectCount = count;
-        objects        = new T[count];
+        this.MaxObjectCount = count;
+        this.objects        = new T[count];
         
         for (int i = 0; i < count; i++)
         {
-            objects[i] = default(T);
+            this.objects[i] = default(T);
         }
     }
     
     public int AllocateFileDescriptor()
     {
-        for (int i = curFileDescriptor + 1; i != curFileDescriptor; i++)
+        for (int i = this.curFileDescriptor + 1; i != this.curFileDescriptor; i++)
         {
-            if (i == MaxObjectCount)
+            if (i == this.MaxObjectCount)
             {
                 i = 1;
             }
 
-            if (objects[i] == null)
+            if (this.objects[i] == null)
             {
-                curFileDescriptor = i;
+                this.curFileDescriptor = i;
                 return i;
             }
         }
@@ -41,13 +41,13 @@ public class FileDescriptorManager<T> {
         int fd = this.AllocateFileDescriptor();
         
         /* Assign it to the object. */
-        objects[fd] = obj;
+        this.objects[fd] = obj;
         
         return fd;
     }
     
     public T? FindIf(Predicate<T> pred) {
-        foreach (var obj in objects)
+        foreach (var obj in this.objects)
         {
             if (obj != null && pred(obj))
             {
@@ -59,16 +59,16 @@ public class FileDescriptorManager<T> {
     
     public T? this[int i]
     {
-        get => objects[i];
-        set => objects[i] = value;
+        get => this.objects[i];
+        set => this.objects[i] = value;
     }
 
     public List<int> GetUsedDescriptors()
     {
         var list = new List<int>();
-        for (int i = 0; i < MaxObjectCount; i++)
+        for (int i = 0; i < this.MaxObjectCount; i++)
         {
-            if (objects[i] != null)
+            if (this.objects[i] != null)
             {
                 list.Add(i);
             }
@@ -79,9 +79,9 @@ public class FileDescriptorManager<T> {
 
     public void Clear()
     {
-        for (int i = 0; i < MaxObjectCount; i++)
+        for (int i = 0; i < this.MaxObjectCount; i++)
         {
-            objects[i] = default(T);
+            this.objects[i] = default(T);
         }
     }
 }

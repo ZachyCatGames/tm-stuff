@@ -10,28 +10,28 @@ public class TaskList
 
     public TaskList()
     {
-        list = new List<ServiceTask>[PriorityLevelCount];
+        this.list = new List<ServiceTask>[PriorityLevelCount];
         for (int i = 0; i < PriorityLevelCount; i++)
         {
-            list[i] = [];
+            this.list[i] = [];
         }
 
-        listLock = new Lock();
+        this.listLock = new Lock();
     }
 
     public void Create() {}
 
     public void AddTask(ServiceTask task)
     {
-        using var scope = listLock.EnterScope();
+        using var scope = this.listLock.EnterScope();
         uint priority = task.priority;
-        list[priority].Add(task);
+        this.list[priority].Add(task);
     }
 
     public void RemoveTask(ServiceTask task)
     {
-        using var scope = listLock.EnterScope();
-        foreach (var lvl in list)
+        using var scope = this.listLock.EnterScope();
+        foreach (var lvl in this.list)
         {
             if (lvl.Remove(task))
                 return;
@@ -41,8 +41,8 @@ public class TaskList
 
     public void ForEach(Action<ServiceTask> pred)
     {
-        using var l = listLock.EnterScope();
-        foreach (var lvl in list)
+        using var l = this.listLock.EnterScope();
+        foreach (var lvl in this.list)
         {
             foreach (var task in lvl)
             {
@@ -53,9 +53,9 @@ public class TaskList
 
     public void RemoveIf(Func<ServiceTask, bool> pred)
     {
-        using var l = listLock.EnterScope();
+        using var l = this.listLock.EnterScope();
         List<ServiceTask> toRemove = new();
-        foreach (var lvl in list)
+        foreach (var lvl in this.list)
         {
             foreach (var task in lvl)
             {
@@ -79,7 +79,7 @@ public class TaskList
 
     public ServiceTask? FindByTaskById(uint taskId)
     {
-        using var scope = listLock.EnterScope();
+        using var scope = this.listLock.EnterScope();
         foreach (var lvl in list)
         {
             foreach (var task in lvl)
@@ -97,9 +97,9 @@ public class TaskList
 
     public ServiceTask? CleanupAndFindTaskWithFollowup()
     {
-        using var scope = listLock.EnterScope();
+        using var scope = this.listLock.EnterScope();
         ServiceTask? withFollowup = null;
-        foreach (var lvl in list)
+        foreach (var lvl in this.list)
         {
             foreach (var task in lvl)
             {
@@ -120,8 +120,8 @@ public class TaskList
 
     public bool IsTaskIdFree(uint taskId)
     {
-        using var scope = listLock.EnterScope();
-        foreach (var lvl in list)
+        using var scope = this.listLock.EnterScope();
+        foreach (var lvl in this.list)
         {
             foreach (var task in lvl)
             {

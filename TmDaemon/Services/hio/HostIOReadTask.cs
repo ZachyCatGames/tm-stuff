@@ -14,7 +14,7 @@ public class HostIOReadTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -28,7 +28,7 @@ public class HostIOReadTask : ServiceTask
         while (reamining > 0 && err == HioErrorCode.SuccessContinue)
         {
             /* Allocate a send a packet. */
-            Packets.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await this.AllocSendPacketAsync();
             reply.isInitiate = false;
             
             /* Determine how much we should read. */
@@ -39,7 +39,7 @@ public class HostIOReadTask : ServiceTask
             err = HioErrorCode.SuccessContinue;
             try
             {
-                await mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packets.Packet.HeaderSize + 0x8, curSize, GetCancelToken());
+                await this.mgr.ReadFileAsync((int)fd, reply.GetBuffer(), offset, Packets.Packet.HeaderSize + 0x8, curSize, GetCancelToken());
             }
             catch (HioException excpt)
             {
@@ -65,11 +65,9 @@ public class HostIOReadTask : ServiceTask
             reply.Write((Int32)curSize);
             reply.Write((Int32)err);
             reply.AdvancePosition(curSize);
-            reply.WriteHeader();
-            //reply.Print();
         
             /* Send the reply. */
-            await SendPacketAsync(reply);
+            await this.SendPacketAsync(reply);
         }
     }
 }

@@ -14,7 +14,7 @@ class HostIOCloseTask : ServiceTask
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -24,7 +24,7 @@ class HostIOCloseTask : ServiceTask
         var result = HioErrorCode.SuccessEnd;
         try
         {
-            mgr.CloseFile((int)fd);
+            this.mgr.CloseFile((int)fd);
         }
         catch (HioException excpt)
         {
@@ -32,15 +32,13 @@ class HostIOCloseTask : ServiceTask
         }
         
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)result);
         reply.Write((UInt64)0); // unused
-        reply.WriteHeader();
-        reply.Print();
         
         /* Send it. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

@@ -14,7 +14,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
     protected override async Task Run()
     {
         /* Get packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
         
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -25,7 +25,7 @@ public class HostDirectoryIOCloseTask : ServiceTask
         /* Close the directory. */
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try {
-            mgr.CloseDirectory((int)fd);
+            this.mgr.CloseDirectory((int)fd);
         }
         catch (HioException excpt)
         {
@@ -33,16 +33,15 @@ public class HostDirectoryIOCloseTask : ServiceTask
         }
         
         /* Allocate a reply packet. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         
         /* Setup the reply. */
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((Int32)err);
         reply.Write((Int64)0);
-        reply.WriteHeader();
         
         /* Send it. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

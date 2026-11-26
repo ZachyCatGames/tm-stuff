@@ -2,7 +2,7 @@ namespace Test.Services.dbg;
 
 public class HostDebugService : ServiceBase
 {
-    public const uint serviceId = 0xDDDE6636;
+    public const uint ServiceId = 0xDDDE6636;
     
     private readonly HostTaskIdAllocator taskIdAlloc;
 
@@ -15,16 +15,16 @@ public class HostDebugService : ServiceBase
         public DbgTask(HostDebugService parent, Packets.Packet pkt, uint taskId) : base(parent, TaskType.Debug, taskId, 0)
         {
             Console.WriteLine(taskId);
-            packet = pkt;
+            this.packet = pkt;
         }
 
         protected override async Task Run()
         {
             /* Send the packet. */
-            await SendPacketAsync(packet);
+            await this.SendPacketAsync(packet);
             
             /* Wait for a reply. */
-            Reply = await WaitForPacket();
+            Reply = await this.WaitForPacket();
         }
     }
 
@@ -37,13 +37,13 @@ public class HostDebugService : ServiceBase
         public ReplyBase(Packets.Packet pkt)
         {
             pkt.Read(out UInt32 replyType);
-            ReplyType = (ReplyType)replyType;
+            this.ReplyType = (ReplyType)replyType;
 
             pkt.Read(out UInt32 pid);
-            ProcessId = pid;
+            this.ProcessId = pid;
 
             pkt.Read(out UInt32 res);
-            Result = res;
+            this.Result = res;
         }
     }
 
@@ -54,16 +54,16 @@ public class HostDebugService : ServiceBase
         
         public ReplyS32(Packets.Packet pkt)
         {
-            Base = new(pkt);
+            this.Base = new(pkt);
             pkt.Read(out Int32 s32);
-            S32 = s32;
+            this.S32 = s32;
 
         }
     }
 
-    public HostDebugService(ServiceManager mgr, HostTaskIdAllocator tidAlloc) : base(serviceId, mgr)
+    public HostDebugService(ServiceManager mgr, HostTaskIdAllocator tidAlloc) : base(ServiceId, mgr)
     {
-        taskIdAlloc = tidAlloc;
+        this.taskIdAlloc = tidAlloc;
     }
 
     public override ServiceTask? ProcessNewRequest(Packets.Packet pkt)
@@ -78,7 +78,7 @@ public class HostDebugService : ServiceBase
         
         /* Create and submit a task. */
         DbgTask task = new(this, pkt, pkt.taskId);
-        serviceManager.RegisterNewTask(task);
+        this.serviceManager.RegisterNewTask(task);
         
         /* Wait for it to finish. */
         await task.WaitDoneAsync();
@@ -90,7 +90,7 @@ public class HostDebugService : ServiceBase
 
     private async Task<Packets.Packet> PreparePacket(DebugTaskType type, UInt64 pid)
     {
-        var pkt = serviceManager.AllocSendPacket();
+        var pkt = await this.serviceManager.AllocSendPacketAsync();
         pkt.Reset();
         pkt.serviceId = serviceId;
         pkt.isInitiate = true;

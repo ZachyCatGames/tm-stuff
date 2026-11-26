@@ -28,7 +28,7 @@ public class HtcsSendTask : ServiceTask
         Int32 retval = 0;
         try
         {
-            retval = await htcsManager.SendPacketAsync(fd, buf, flags, GetCancelToken());
+            retval = await this.htcsManager.SendPacketAsync(fd, buf, flags, GetCancelToken());
         }
         catch (HtcsException excpt)
         {
@@ -59,17 +59,16 @@ public class HtcsSendTask : ServiceTask
             }
 
             /* Allocate a packet for our response. */
-            Packets.Packet reply = await AllocSendPacketAsync();
+            Packets.Packet reply = await this.AllocSendPacketAsync();
 
             /* Setup the packet. */
             reply.isInitiate = false;
             reply.Write(this.sentSoFar);
             reply.Write(result);
             reply.Write(errorRetCode);
-            reply.WriteHeader();
 
             /* Send the packet to the device. */
-            await SendPacketAsync(reply);
+            await this.SendPacketAsync(reply);
 
             return true;
         }

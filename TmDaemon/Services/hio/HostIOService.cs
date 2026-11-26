@@ -19,49 +19,49 @@ public class HostIOService : ServiceBase {
         ServiceTask? task = null;
         switch (pkt.taskType) {
             case TaskType.OpenFile:
-                task = new HostIOOpenTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOOpenTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.GetFileSize:
-                task = new HostIOGetSizeTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOGetSizeTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.SetFileSize:
-                task = new HostIOSetSizeTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOSetSizeTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.FileExists:
-                task = new HostIOExistsTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOExistsTask(this,  pkt.taskId);
                 break;
             case TaskType.ReadFile:
-                task = new HostIOReadTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOReadTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.WriteFile:
-                task = new HostIOWriteTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOWriteTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.FlushFile:
-                task = new HostIOFlushTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOFlushTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.SetPriorityForFile:
-                task = new HostIOSetPriorityTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOSetPriorityTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.GetPriorityForFile:
-                task = new HostIOGetPriorityTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOGetPriorityTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.CloseFile:
-                task = new HostIOCloseTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOCloseTask(this, this.hostfsMgr, pkt.taskId);
                 break;
             case TaskType.CreateFile:
-                task = new HostIOCreateTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOCreateTask(this, pkt.taskId);
                 break;
             case TaskType.DeleteFile:
-                task = new HostIODeleteTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIODeleteTask(this, pkt.taskId);
                 break;
             case TaskType.RenameFile:
-                task = new HostIORenameTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIORenameTask(this, pkt.taskId);
                 break;
             case TaskType.GetIOType:
-                task = new HostIOGetIOTypeTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOGetIOTypeTask(this, pkt.taskId);
                 break;
             case TaskType.GetFileTimeStamp:
-                task = new HostIOGetFileTimeStampTask(this, hostfsMgr, pkt.taskId);
+                task = new HostIOGetFileTimeStampTask(this, pkt.taskId);
                 break;
             default:
                 break;

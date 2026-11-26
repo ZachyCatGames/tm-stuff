@@ -4,17 +4,13 @@ namespace Test.Services.hio;
 
 public class HostDirectoryIOCreateTask : ServiceTask
 {
-    HostFilesystemManager mgr;
-    
-    public HostDirectoryIOCreateTask(IService parent, HostFilesystemManager mgr, uint taskId) : base(parent, TaskType.CreateDirectory, taskId, 0)
-    {
-        this.mgr = mgr;
-    }
+    public HostDirectoryIOCreateTask(IService parent, uint taskId) : base(parent, TaskType.CreateDirectory, taskId, 0)
+    {}
     
     protected override async Task Run()
     {
         /* Get the packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* Parse the packet. */
         pkt.Read(out Int64 fd);
@@ -27,7 +23,7 @@ public class HostDirectoryIOCreateTask : ServiceTask
         HioErrorCode err = HioErrorCode.SuccessEnd;
         try
         {
-            mgr.CreateDirectory(path);
+            HostFilesystemManager.CreateDirectory(path);
         }
         catch (HioException excpt)
         {
@@ -35,15 +31,13 @@ public class HostDirectoryIOCreateTask : ServiceTask
         }
 
         /* Setup a reply. */
-        Packets.Packet reply = await AllocSendPacketAsync();
+        Packets.Packet reply = await this.AllocSendPacketAsync();
         reply.isInitiate = false;
         reply.Write(fd);
         reply.Write((UInt32)err);
         reply.Write((UInt64)0); // unused
-        reply.WriteHeader();
-        reply.Print();
 
         /* Send the reply. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }

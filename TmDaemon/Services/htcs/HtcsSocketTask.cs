@@ -11,7 +11,7 @@ public class HtcsSocketTask : ServiceTask
     protected override async Task Run()
     {
         /* Receive info packet. */
-        Packets.Packet pkt = await WaitForPacket();
+        Packets.Packet pkt = await this.WaitForPacket();
 
         /* This should just contain -1..? */
         pkt.Read(out Int32 fd);
@@ -26,7 +26,7 @@ public class HtcsSocketTask : ServiceTask
         Int32 newFd = -1;
         try
         {
-            newFd = htcsManager.CreateSocket();
+            newFd = this.htcsManager.CreateSocket();
         }
         catch (HtcsException excpt)
         {
@@ -37,19 +37,18 @@ public class HtcsSocketTask : ServiceTask
 #endif
 
         /* Allocate a reply packet. */
-        var reply = await AllocSendPacketAsync();
+        var reply = await this.AllocSendPacketAsync();
 
         /* Setup our reply. */
         reply.isInitiate = false;
         reply.Write(newFd); // I think these are the same?
         reply.Write(newFd);
         reply.Write(result);
-        reply.WriteHeader();
 
         //var f = File.Open(String.Format("{0}.bin", newFd), FileMode.Create);
         //f.Write(reply.GetBuffer(), 0, 0xe020);
 
         /* Send it off. */
-        await SendPacketAsync(reply);
+        await this.SendPacketAsync(reply);
     }
 }
