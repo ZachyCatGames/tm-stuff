@@ -190,7 +190,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     {
         using var l = await AsyncLockHolder.EnterAsync(asyncLock);
 
-        if (!connectedTargets.TryGetValue(serialNumber, out var target))
+        if (connectedTargets.TryGetValue(serialNumber, out var target))
             return target;
 
         if (!attachedBySerial.TryGetValue(serialNumber, out var info))
@@ -331,7 +331,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                 
                 this.parent.NotifyDiscoveryEvent(info, true);
                 this.attachedTargets[id.ToString()] = info;
-                this.attachedTargets[info.SerialNumber] = info;
+                this.attachedBySerial[info.SerialNumber] = (info, id.ToString());
             }
         }
 
