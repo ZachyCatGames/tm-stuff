@@ -85,10 +85,7 @@ public class Target : IDisposable
         this.pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), true);
         
         this.clientContexts = new();
-    }
-
-    public async Task<bool> InitializeAsync()
-    {
+        
         /* Register services. */
         this.serviceManager.RegisterService(this.htcsService);
         this.serviceManager.RegisterService(this.hioService);
@@ -103,9 +100,6 @@ public class Target : IDisposable
         /* Update our status to connected. */
         Debug.Assert(this.Info != null);
         this.Info.Status = TargetStatus.Connected;
-        
-        /* Success if info was read. */
-        return this.Info != null;
     }
 
     public void Dispose()

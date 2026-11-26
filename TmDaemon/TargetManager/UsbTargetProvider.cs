@@ -235,12 +235,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                 return null;
             }
 
-            /* Initialize target. */
-            try
-            {
-                await targ.InitializeAsync();
-            }
-            catch (Exception e)
+            if (targ.Info == null)
             {
                 targ.Dispose();
                 return null;
