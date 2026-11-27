@@ -5,16 +5,11 @@
     - they don't make much sense as-is with the new registered target stuff
     - could change disconnected/connected types to only pull from registered list, then add a new "unregistered" search type.
 
-- handle connections / disconnections in a less convoluted way
-    - Connect should return AlreadyConnected if a connection already exists
-    - dc is spaghetti (not the good kind) :(
 
 - how the fuck should discovery in tics work???
     - on that note, tics is horribly outdated
 
 - need workaround for packet limit on resume
 
-- Create a TargetInfoReader class separate from the Target class
-    - this will allow receiving beacon packets without setting up a full Target inst
-    - this should also allow making Target simpler since it won't need to deal w/
-      being in a half-setup state
+- for some reason LibUsbDotNet's hotplug event loop sometimes throws an exception w/ "Interrupted"
+  out of seemingly nowhere
