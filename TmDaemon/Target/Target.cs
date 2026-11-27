@@ -148,12 +148,15 @@ public class Target : IDisposable
     
     private void DisconnectUnsafe()
     {
-        /* Tear down the packet manager. */
-        this.packetManager.DisconnectAsync().Wait();
+        /* Lock out new tasks. */
+        this.serviceManager.InitiateLock = true;
         
         /* Finalize service manager. */
         this.serviceManager.CancelAllTasksAsync().Wait();
         this.serviceManager.Finalize();
+        
+        /* Tear down the packet manager. */
+        this.packetManager.DisconnectAsync().Wait();
         
         /* Cancel any port event observers. */
         foreach (var ctx in this.clientContexts.Values)
@@ -162,6 +165,7 @@ public class Target : IDisposable
         }
         
         /* Update our status to disconnected. */
+        Debug.Assert(this.Info != null);
         this.Info.Status = TargetStatus.Disconnected;
 
         //Console.WriteLine("{0} disconnected", Info.SerialNumber);

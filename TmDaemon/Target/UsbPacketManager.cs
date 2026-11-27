@@ -60,7 +60,8 @@ public class UsbPacketManager : IPacketManager
     public async Task DisconnectAsync()
     {
         /* Stop send and recv threads. */
-        await StopThreadsAsync();
+        if (this.usbIf != null)
+            await StopThreadsAsync();
         
         /* Tell our parent that we're done. */
         parent.NotifyClose(this);

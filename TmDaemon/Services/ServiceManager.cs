@@ -27,6 +27,8 @@ public class ServiceManager
     
     private readonly SemaphoreSlim cancelTasksSem = new(0);
 
+    public bool InitiateLock { get; set; }
+
     private readonly SemaphoreSlim sendLockLock = new(1); // society
     private readonly SemaphoreSlim sendWaitLock = new(0);
     private int sendLockWaiterCount = 0;
@@ -262,6 +264,13 @@ public class ServiceManager
         /* Is this an initiate message? */
         if (pkt.isInitiate)
         {
+            /* Drop it if the initiate lock is on. */
+            if (this.InitiateLock)
+            {
+                pkt.Release();
+                return;
+            }
+            
             /* Dispatch the packet to its target Service. */
             var serviceId = pkt.serviceId;
             foreach (var service in this.services)
