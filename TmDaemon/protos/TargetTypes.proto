@@ -40,6 +40,7 @@ message TargetInfo {
   string address = 2;
   string connectionType = 3;
   TargetStatus status = 4;
+  int32 bcidVersion = 5; // TODO: gen2
 }
 
 enum TargetEventType {
