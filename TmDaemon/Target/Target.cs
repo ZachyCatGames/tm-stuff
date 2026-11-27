@@ -26,6 +26,8 @@ public class Target : IDisposable
 
         public Task NotifySuspend() => this.parent.OnSuspend();
     }
+
+    private const int BcidVersionForPmStateUpdates = 66;
     
     private readonly ITargetManager parent;
 
@@ -52,6 +54,8 @@ public class Target : IDisposable
     private readonly Dictionary<int, TargetClientContext> clientContexts = new();
     
     public TargetInfo? Info { get; private set; }
+    
+    public bool SupportsPmStateUpdates => BcidVersionForPmStateUpdates <= Info.BcidVersion;
 
     private async Task OnPmStateChanged(TargetEventType trans)
     {
@@ -108,7 +112,7 @@ public class Target : IDisposable
         this.hioDirService = new HostDirectoryIOService(serviceManager, this.hostfsManager);
         this.envService    = new HostEnvService(serviceManager);
         this.debugService  = new HostDebugService(serviceManager, this.taskIdAlloc);
-        this.pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), true);
+        this.pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), SupportsPmStateUpdates);
         
         /* Register services. */
         this.serviceManager.RegisterService(this.htcsService);

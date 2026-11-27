@@ -344,21 +344,22 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                 }
             }
 
+            Debug.Assert(beacon != null);
             if (reconnect)
             {
                 /* Give the device to the target. */
-                target.NotifyResume((UsbDevice)dev.Clone());
-                return;
+                await target.NotifyResume((UsbDevice)dev.Clone());
             }
             else
             {
                 /* Parse the beacon packet. */
                 var info = new TargetInfo()
                 {
-                    Address = id.ToString(),
+                    Address        = id.ToString(),
                     ConnectionType = "USB",
-                    SerialNumber = beacon?.SN,
-                    Status = TargetStatus.Disconnected
+                    SerialNumber   = beacon?.SN,
+                    Status         = TargetStatus.Disconnected,
+                    BcidVersion    = (int)beacon?.BCID
                 };
             
                 this.parent.NotifyDiscoveryEvent(info, true);
