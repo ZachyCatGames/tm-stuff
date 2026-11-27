@@ -13,3 +13,5 @@
 
 - for some reason LibUsbDotNet's hotplug event loop sometimes throws an exception w/ "Interrupted"
   out of seemingly nowhere
+
+- test old fw pm state stuff

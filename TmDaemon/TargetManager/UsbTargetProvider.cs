@@ -15,13 +15,13 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     class TargetInfoReader : IDisposable
     {
         // connect + beacon reply
-        private const UInt32 InitializeServiceId   = 0xcd5ed1b8;
+        private const UInt32 InitializeServiceId     = 0xcd5ed1b8;
         // disconnect + no reply
-        private const UInt32 FinalizeServiceId     = 0xf97fe6b9;
+        private const UInt32 FinalizeServiceId       = 0xf97fe6b9;
         // beacon reply
-        private const UInt32 QueryAgentInfo        = 0x3a8ddd94;
+        private const UInt32 QueryAgentInfoServiceId = 0x3a8ddd94;
         // send host info + no reply
-        private const UInt32 SendHostInfoServiceId = 0x4d4a6c24;
+        private const UInt32 SendHostInfoServiceId   = 0x4d4a6c24;
         
         private readonly UsbInterface usbIf;
 
@@ -82,7 +82,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             for (int i = 0; i < 5; i++)
             {
-                var reply = await this.GetBeaconImpl(QueryAgentInfo);
+                var reply = await this.GetBeaconImpl(QueryAgentInfoServiceId);
                 if (reply != null)
                     return reply;
             }
