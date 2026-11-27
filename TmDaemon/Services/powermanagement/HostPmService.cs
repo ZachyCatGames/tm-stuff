@@ -17,7 +17,7 @@ public class HostPmService : ServiceBase
             msg.Read(out int state);
             msg.Release();
 
-            if (parent.supportsStateChangeEv)
+            if (parent.SupportsStateChange)
             {
                 /* Forward the state change. */
                 parent.inProgress = true;
@@ -32,7 +32,7 @@ public class HostPmService : ServiceBase
             /* Send a reply. */
             Packet pkt = await this.AllocSendPacketAsync();
             pkt.Write(-1);
-            await this.SendPacketAsync(pkt);
+            await this.parent.GetManager().SendPacketByForceAsync(pkt);
         }
     }
     
@@ -49,7 +49,7 @@ public class HostPmService : ServiceBase
             msg.Read(out int state);
             msg.Release();
 
-            if (!parent.supportsStateChangeEv)
+            if (!parent.SupportsStateChange)
             {
                 /* Emulate modern PmStateChange behavior by sending MinimumAwake + SleepReady. */
                 parent.inProgress = true;
@@ -63,13 +63,13 @@ public class HostPmService : ServiceBase
                 await parent.prepDoneEv.WaitAsync();
             }
             
+            /* Signal that we're disconnecting due to sleep. */
+            await parent.stateObserver.NotifySuspend();
+            
             /* Send a reply. */
             Packet pkt = await this.AllocSendPacketAsync();
             pkt.Write(-1);
-            await this.SendPacketAsync(pkt);
-            
-            /* Signal that we're disconnecting due to sleep. */
-            await parent.stateObserver.NotifySuspend();
+            await this.parent.GetManager().SendPacketByForceAsync(pkt);
         }
     }
     
@@ -77,17 +77,17 @@ public class HostPmService : ServiceBase
     
     private readonly IPmObserver stateObserver;
 
-    private readonly bool supportsStateChangeEv;
-
     private readonly SemaphoreSlim prepDoneEv = new(0);
     private PmState curState = PmState.FullAwake;
     private PmState prevState = PmState.FullAwake;
     private bool    inProgress = false;
     
+    public bool SupportsStateChange { get; init; }
+    
     public HostPmService(ServiceManager srvMgr, IPmObserver observer, bool supportsStateChangeEv) : base(ServiceId, srvMgr)
     {
         this.stateObserver = observer;
-        this.supportsStateChangeEv = supportsStateChangeEv;
+        this.SupportsStateChange = supportsStateChangeEv;
     }
 
     public void NotifyPrepDone()
@@ -102,9 +102,18 @@ public class HostPmService : ServiceBase
     }
 
     /* This should be called by TargetManager or TargetProvider on old BCID vers. */
-    public void NotifyResumed()
+    public async Task NotifyResumed()
     {
-        curState = PmState.FullAwake;
+        /* We don't get fancy state change notifs on old vers, so assume FullAwake. */
+        if (!this.SupportsStateChange)
+        {
+            /* Switch to FullAwake. */
+            prevState = curState;
+            curState = PmState.FullAwake;
+            
+            /* Send a notif to observers. */
+            await this.stateObserver.NotifyStateChange(TargetEventType.Connected);
+        }
     }
 
     public override ServiceTask? ProcessNewRequest(Packet pkt)
@@ -132,7 +141,11 @@ public class HostPmService : ServiceBase
         if (prevState == PmState.FullAwake && curState == PmState.MinimumAwake)
             return TargetEventType.Suspending;
         if (curState == PmState.SleepReady)
-            return TargetEventType.Suspended;
+            return TargetEventType.Asleep;
+        if (prevState == PmState.SleepReady && curState == PmState.MinimumAwake)
+            return TargetEventType.MinimalSleep;
+        if (prevState == PmState.MinimumAwake && curState == PmState.FullAwake)
+            return TargetEventType.Connected;
 
         return TargetEventType.Unknown;
     }

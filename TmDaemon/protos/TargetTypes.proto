@@ -25,6 +25,7 @@ enum TargetStatus {
   TargetStatus_Connected = 1;
   TargetStatus_Unplugged = 2;
   TargetStatus_Asleep = 3;
+  TargetStatus_MinimalSleep = 4;
 }
 
 enum QueryType {
@@ -45,9 +46,9 @@ enum TargetEventType {
   TargetEventType_Connected = 0;
   TargetEventType_Disconnected = 1;
   TargetEventType_Suspending = 2;
-  TargetEventType_Suspended = 3;
-  TargetEventType_Resuming = 4;
-  TargetEventType_Resumed = 5;
+  TargetEventType_Asleep= 3;
+  TargetEventType_MinimalSleep = 4; // idk
+  //TargetEventType_Resumed = 5;
   
   TargetEventType_Unknown = 100;
 }

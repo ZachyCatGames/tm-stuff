@@ -19,8 +19,6 @@ public class UsbPacketManager : IPacketManager
 
     private UsbInterface? usbIf;
 
-    private BeaconPacket? beaconPacket;
-
     private CancellationTokenSource threadCts = new();
 
     private const int     abruptThreadCount = 2;
@@ -33,17 +31,21 @@ public class UsbPacketManager : IPacketManager
     public LocationId UsbLocationId { get; init; }
 
     private bool isSuspended = false;
-    
-    public UsbPacketManager(UsbDevice usb, ServiceManager mgr, UsbTargetProvider parent)
-    {
-        serviceManager = mgr;
-        usbIf          = new UsbInterface(usb);
-        this.parent    = parent;
 
+    public string SerialNumber { get; init; }
+    
+    public UsbPacketManager(UsbDevice usb, ServiceManager mgr, UsbTargetProvider parent, string serialNumber)
+    {
+        this.serviceManager = mgr;
+        this.parent         = parent;
+
+        /* Setup usb stuff. */
+        usbIf         = new UsbInterface(usb);
         UsbLocationId = usbIf.UsbLocationId;
 
-        beaconPacket    = null;
-
+        /* Assign serial number. */
+        this.SerialNumber = serialNumber;
+        
         /* Start the send and receive threads. */
         this.StartWorkThreads();
     }

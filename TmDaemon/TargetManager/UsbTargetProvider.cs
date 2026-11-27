@@ -232,7 +232,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             UsbPacketManager pktMgr;
             try
             {
-                pktMgr = new((UsbDevice)dev.Clone(), srvMgr, this);
+                pktMgr = new((UsbDevice)dev.Clone(), srvMgr, this, targInfo.SerialNumber);
             }
             catch (Exception e)
             {
@@ -412,7 +412,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         //using var l = AsyncLockHolder.Enter(asyncLock);
         
         /* Do nothing if it isn't registered. */
-        var id = child.UsbLocationId.ToString();
+        var id = child.SerialNumber;
         if (!this.connectedTargets.ContainsKey(id))
             return;
         
@@ -425,7 +425,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         //using var l = AsyncLockHolder.Enter(asyncLock);
 
         /* Do nothing if it isn't a registered target. */
-        var id = child.UsbLocationId.ToString();
+        var id = child.SerialNumber;
         if (!this.connectedTargets.ContainsKey(id))
             return;
 

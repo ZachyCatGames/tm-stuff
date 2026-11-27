@@ -55,6 +55,32 @@ public class Target : IDisposable
 
     private async Task OnPmStateChanged(TargetEventType trans)
     {
+        /* Update our state as appropriate. */
+        switch (trans)
+        {
+            case TargetEventType.Suspending:
+            case TargetEventType.MinimalSleep:
+            {
+                this.Info.Status = TargetStatus.MinimalSleep;
+                break;
+            }
+            case TargetEventType.Asleep:
+            {
+                this.Info.Status = TargetStatus.Asleep;
+                break;
+            }
+            case TargetEventType.Connected:
+            {
+                this.Info.Status = TargetStatus.Connected;
+                break;
+            }
+            default:
+            {
+                Console.WriteLine("[target] Unreachable Pm state change: {0}", trans);
+                break;
+            }
+        }
+        
         /* Notify our parent manager. */
         this.parent.NotifyTargetPmTransition(this, trans);
 
@@ -168,12 +194,11 @@ public class Target : IDisposable
 
     private async Task OnSuspend()
     {
-        /* Do nothing if already suspended/suspending. */
-        Debug.Assert(this.Info != null);
-        if (this.Info.Status == TargetStatus.Asleep)
-            return;
+        /* Notify pm service. */
+        await this.pmService.NotifyResumed();
         
         /* Tag ourself as suspended. */
+        Debug.Assert(this.Info != null);
         this.Info.Status = TargetStatus.Asleep;
         
         /* Notify our packet manager. */
@@ -187,6 +212,12 @@ public class Target : IDisposable
 
         /* Attempt resuming the packet manager. */
         await this.packetManager.NotifyResumeAsync(obj);
+        
+        /* On newer versions we get fancy state change notifs, but on old vers we only get this. */
+        if (pmService.SupportsStateChange)
+        {
+            this.Info.Status = TargetStatus.Connected;
+        }
         
         Console.WriteLine("[target] resumed");
         
