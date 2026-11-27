@@ -20,13 +20,60 @@ public class ServiceManager
     private readonly PacketQueue freePacketsForSend = new(SendPacketsCountMax);
     private readonly PacketQueue freePacketsForRecv = new(RecvPacketsCountMax);
     
-    private readonly Channel<Packets.Packet>    sendQueue = Channel.CreateUnbounded<Packets.Packet>();
+    private readonly Channel<Packet>    sendQueue = Channel.CreateUnbounded<Packet>();
     private readonly Thread             workThread;
     private readonly Channel<WorkerCmd> cmdQueue = Channel.CreateUnbounded<WorkerCmd>();
     //private readonly PacketQueue    packetQueue = new (SendPacketsCountMax + RecvPacketsCountMax);
     
     private readonly SemaphoreSlim cancelTasksSem = new(0);
 
+    private readonly SemaphoreSlim sendLockLock = new(1); // society
+    private readonly SemaphoreSlim sendWaitLock = new(0);
+    private int sendLockWaiterCount = 0;
+    private bool sendLock;
+    public bool SendLock
+    {
+        get => sendLock;
+        set
+        {
+            using var s = AsyncLockHolder.Enter(sendLockLock);
+            if (value != sendLock)
+            {
+                if (value)
+                {
+                    sendLock = true;
+                }
+                else
+                {
+                    sendLock = false;
+                    for (int i = 0; i < sendLockWaiterCount; i++)
+                    {
+                        sendWaitLock.Release();
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task WaitForSendLock()
+    {
+        bool lockEn;
+        using (var s = await AsyncLockHolder.EnterAsync(sendLockLock))
+        {
+            lockEn = sendLock;
+            if (sendLock)
+            {
+                sendLockWaiterCount++;
+            }
+        }
+
+        if (lockEn)
+        {
+            await sendWaitLock.WaitAsync();
+        }
+
+    }
+    
     public bool InitiaiteLock { get; set; }
     
     private enum CmdType
@@ -41,9 +88,9 @@ public class ServiceManager
     private class WorkerCmd
     {
         public CmdType Type;
-        public Packets.Packet? Pkt;
+        public Packet? Pkt;
 
-        public WorkerCmd(CmdType type, Packets.Packet pkt)
+        public WorkerCmd(CmdType type, Packet pkt)
         {
             this.Type = type;
             this.Pkt = pkt;
@@ -56,12 +103,12 @@ public class ServiceManager
     {
         for (int i = 0; i < SendPacketsCountMax; i++)
         {
-            this.freePacketsForSend.Add(new Packets.Packet(this.freePacketsForSend));
+            this.freePacketsForSend.Add(new Packet(this.freePacketsForSend));
         }
 
         for (int i = 0; i < RecvPacketsCountMax; i++)
         {
-            this.freePacketsForRecv.Add(new Packets.Packet(this.freePacketsForRecv));
+            this.freePacketsForRecv.Add(new Packet(this.freePacketsForRecv));
         }
         
         /* Start the worker thread. */
@@ -95,28 +142,28 @@ public class ServiceManager
     }
     
     /* Packet allocators. */
-    public Packets.Packet AllocRecvPacket()
+    public Packet AllocRecvPacket()
     {
         Packet pkt = this.freePacketsForRecv.Take();
         pkt.Reset();
         return pkt;
     }
 
-    public async Task<Packets.Packet> AllocRecvPacketAsync()
+    public async Task<Packet> AllocRecvPacketAsync()
     {
         Packet pkt = await this.freePacketsForRecv.TakeAsync();
         pkt.Reset();
         return pkt;
     }
 
-    public Packets.Packet AllocSendPacket()
+    public Packet AllocSendPacket()
     {
         Packet pkt = this.freePacketsForSend.Take();
         pkt.Reset();
         return pkt;
     }
 
-    public async Task<Packets.Packet> AllocSendPacketAsync()
+    public async Task<Packet> AllocSendPacketAsync()
     {
         Packet pkt = await this.freePacketsForSend.TakeAsync();
         pkt.Reset();
@@ -124,22 +171,30 @@ public class ServiceManager
     }
     
     /* These are for tasks to send replies or w/e */
-    public void SendPacket(Packets.Packet pkt)
+    public void SendPacket(Packet pkt)
     {
+        this.WaitForSendLock().Wait();
         pkt.WriteHeader();
         this.sendQueue.Writer.TryWrite(pkt);
     }
 
-    public async Task SendPacketAsync(Packets.Packet pkt)
+    public async Task SendPacketAsync(Packet pkt)
+    {
+        await this.WaitForSendLock();
+        pkt.WriteHeader();
+        await this.sendQueue.Writer.WriteAsync(pkt);
+    }
+
+    public async Task SendPacketByForceAsync(Packet pkt)
     {
         pkt.WriteHeader();
         await this.sendQueue.Writer.WriteAsync(pkt);
     }
     
     /* These are for the packet manager. */
-    public void OnRecvPacket(Packets.Packet pkt) => this.cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
+    public void OnRecvPacket(Packet pkt) => this.cmdQueue.Writer.TryWrite(new WorkerCmd(CmdType.NewPacket, pkt));
 
-    public async Task<Packets.Packet> PopSendPacketAsync(CancellationToken ct) => await this.sendQueue.Reader.ReadAsync(ct);
+    public async Task<Packet> PopSendPacketAsync(CancellationToken ct) => await this.sendQueue.Reader.ReadAsync(ct);
     
     private async void WorkThreadFunc()
     {
@@ -200,7 +255,7 @@ public class ServiceManager
     }
 
     // called by PacketManager recv thread
-    private void ProcessRecvPacketImpl(Packets.Packet pkt)
+    private void ProcessRecvPacketImpl(Packet pkt)
     {
         /* Parse the header. */
         pkt.ParseHeader();
