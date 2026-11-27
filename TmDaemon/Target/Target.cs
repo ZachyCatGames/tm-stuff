@@ -49,7 +49,7 @@ public class Target : IDisposable
     private readonly HostPmService          pmService;
     
     private int currentContextId;
-    private readonly Dictionary<int, TargetClientContext> clientContexts;
+    private readonly Dictionary<int, TargetClientContext> clientContexts = new();
     
     public TargetInfo? Info { get; private set; }
 
@@ -83,8 +83,6 @@ public class Target : IDisposable
         this.envService    = new HostEnvService(serviceManager);
         this.debugService  = new HostDebugService(serviceManager, this.taskIdAlloc);
         this.pmService     = new HostPmService(serviceManager, new TargetPmObserver(this), true);
-        
-        this.clientContexts = new();
         
         /* Register services. */
         this.serviceManager.RegisterService(this.htcsService);

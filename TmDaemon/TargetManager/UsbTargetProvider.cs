@@ -51,7 +51,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             return err == Error.Success;
         }
         
-        public async Task<BeaconPacket?> GetBeaconImpl(uint serviceId)
+        private async Task<BeaconPacket?> GetBeaconImpl(uint serviceId)
         {
             var pkt = new Packet();
             pkt.Reset();
@@ -94,7 +94,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             for (int i = 0; i < 5; i++)
             {
-                var reply = await this.GetBeaconImpl(QueryAgentInfo);
+                var reply = await this.GetBeaconImpl(InitializeServiceId);
                 if (reply != null)
                     return reply;
             }
@@ -118,6 +118,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     const int SdkProductId = 0x3000;
     const int SdkVendorId = 0x57E;
+
+    private const int TmipcBcidVersionCurrent = 96;
 
     private ITargetManager parent;
 
@@ -185,6 +187,26 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
         return list;
     }
+
+    private async Task<bool> StartConnectionImpl(TargetInfoReader reader, bool forResume)
+    {
+        /* Send host info. */
+        await reader.SendHostBeacon(TmipcBcidVersionCurrent, forResume ? 1 : 0);
+                
+        /* Connect. */
+        if (await reader.Connect() == null)
+            return false;
+
+        return true;
+    }
+    
+    private async Task<bool> StartConnection(UsbDevice dev, bool forResume)
+    {
+        using (var reader = new TargetInfoReader(dev))
+        {
+            return await this.StartConnectionImpl(reader, forResume);
+        }
+    }
     
     public async Task<Target.Target?> ConnectAsync(string serialNumber)
     {
@@ -203,14 +225,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
         {
             var srvMgr = new ServiceManager();
 
-            using (var reader = new TargetInfoReader((UsbDevice)dev.Clone()))
-            {
-                /* Send host info. */
-                await reader.SendHostBeacon(96, 0);
-                
-                /* Connect. */
-                await reader.Connect();
-            }
+            if (!await this.StartConnection((UsbDevice)dev.Clone(), false))
+                return null;
         
             /* Setup packet manager. */
             UsbPacketManager pktMgr;
@@ -220,6 +236,7 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             }
             catch (Exception e)
             {
+                srvMgr.Finalize();
                 return null;
             }
 
@@ -231,15 +248,20 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
             }
             catch (Exception e)
             {
+                await pktMgr.DisconnectAsync();
                 pktMgr.Dispose();
                 return null;
             }
 
             if (targ.Info == null)
             {
+                await targ.DisconnectAsync();
                 targ.Dispose();
                 return null;
             }
+            
+            /* Add the target to the target list. */
+            this.connectedTargets[serialNumber] = targ;
 
             return targ;
         }
@@ -294,20 +316,42 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
 
     private async Task HandleDevicePlugged(DeviceArrivedEventArgs e)
     {
-        UsbDevice dev = e.Device;
+        using UsbDevice dev = e.Device;
         LocationId id = dev.LocationId;
             
         /* Ignore it if it's not a NintendoSDK device. */
         if (dev.ProductId == SdkProductId || dev.VendorId == SdkVendorId)
         {
             dev.Open();
-            
+
+            bool reconnect = false;
+            Target.Target? target;
+            BeaconPacket? beacon;
             using (var reader = new TargetInfoReader((UsbDevice)dev.Clone()))
             {
-                var beacon = await reader.GetBeacon();
+                beacon = await reader.GetBeacon();
                 if (beacon == null)
                     return;
                 
+                /* Check if this is an asleep connected target. */
+                var isConnected = this.connectedTargets.TryGetValue(beacon?.SN, out target);
+                reconnect = isConnected && target.Info.Status == TargetStatus.Asleep && beacon?.PS != 0;
+                if (reconnect)
+                {
+                    /* Start the connection. */
+                    if (!await this.StartConnectionImpl(reader, true))
+                        return;
+                }
+            }
+
+            if (reconnect)
+            {
+                /* Give the device to the target. */
+                target.NotifyResume((UsbDevice)dev.Clone());
+                return;
+            }
+            else
+            {
                 /* Parse the beacon packet. */
                 var info = new TargetInfo()
                 {
@@ -316,22 +360,12 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
                     SerialNumber = beacon?.SN,
                     Status = TargetStatus.Disconnected
                 };
-                
-                /* Check if this is a connected target. */
-                if (this.connectedTargets.TryGetValue(info.SerialNumber, out var target))
-                {
-                    target.NotifyResume(dev);
-                    return;
-                }
-                
+            
                 this.parent.NotifyDiscoveryEvent(info, true);
                 this.attachedTargets[id.ToString()] = info;
                 this.attachedBySerial[info.SerialNumber] = (info, id.ToString());
             }
         }
-
-        dev.Dispose();
-
     }
 
     private async Task HandleDeviceUnplugged(DeviceLeftEventArgs e)
@@ -389,8 +423,8 @@ public class UsbTargetProvider : ITargetProvider, IDisposable
     public void NotifyAbruptClose(UsbPacketManager child)
     {
         //using var l = AsyncLockHolder.Enter(asyncLock);
-        
-        /* Do nothing if it isn't registered. */
+
+        /* Do nothing if it isn't a registered target. */
         var id = child.UsbLocationId.ToString();
         if (!this.connectedTargets.ContainsKey(id))
             return;

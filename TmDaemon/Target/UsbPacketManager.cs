@@ -17,22 +17,22 @@ public class UsbPacketManager : IPacketManager
     
     private readonly ServiceManager serviceManager;
 
-    private UsbInterface usbIf;
+    private UsbInterface? usbIf;
 
     private BeaconPacket? beaconPacket;
-    
-    private bool isConnected;
-    
+
     private CancellationTokenSource threadCts = new();
 
-    private bool          abruptDisconnectHandled = false;
+    private const int     abruptThreadCount = 2;
+    private int           curAbruptThreadCount = 0;
     private readonly Lock abruptDisconnectLock    = new();
 
-    private readonly SemaphoreSlim cancelSem = new(0);
+    private SemaphoreSlim cancelSem = new(0);
+    private bool cancelForAbrupt = false;
 
     public LocationId UsbLocationId { get; init; }
-    
-    public bool IsSuspended { get; private set; }
+
+    private bool isSuspended = false;
     
     public UsbPacketManager(UsbDevice usb, ServiceManager mgr, UsbTargetProvider parent)
     {
@@ -43,8 +43,7 @@ public class UsbPacketManager : IPacketManager
         UsbLocationId = usbIf.UsbLocationId;
 
         beaconPacket    = null;
-        isConnected     = false;
-        
+
         /* Start the send and receive threads. */
         this.StartWorkThreads();
     }
@@ -52,14 +51,12 @@ public class UsbPacketManager : IPacketManager
     public void Dispose()
     {
         /* Dispose the USB Interface. */
-        usbIf.Dispose();
+        if (usbIf != null)
+            usbIf.Dispose();
     }
     
     public async Task DisconnectAsync()
     {
-        /* Block new initiate requests. */
-        serviceManager.InitiaiteLock = true;
-        
         /* Stop send and recv threads. */
         await StopThreadsAsync();
         
@@ -70,13 +67,10 @@ public class UsbPacketManager : IPacketManager
     public async Task NotifySuspendAsync()
     {
         /* Indicate we're suspended. */
-        this.IsSuspended = true;
+        this.isSuspended = true;
         
-        /* Stop the send and receive thread. */
-        await this.StopThreadsAsync();
-        
-        /* Destroy our usb interface. */
-        this.usbIf.Dispose();
+        /* Lock the service manager send queue. */
+        this.serviceManager.SendLock = true;
     }
     
     public async Task NotifyResumeAsync(object obj)
@@ -87,16 +81,17 @@ public class UsbPacketManager : IPacketManager
         UsbDevice dev = (UsbDevice)obj;
         
         /* Update our usb interface. */
+        Debug.Assert(this.usbIf == null);
         this.usbIf = new UsbInterface(dev);
         
         /* Start the work threads. */
         this.StartWorkThreads();
         
-        /* Reconnect, indicating we had a connection earlier. */
-        //await this.ConnectImplAsync(1);
-        
         /* Clear suspended flag. */
-        this.IsSuspended = false;
+        this.isSuspended = false;
+        
+        /* Clear the send lock. */
+        this.serviceManager.SendLock = false;
         
         Console.WriteLine("[usb] resumed");
     }
@@ -105,6 +100,8 @@ public class UsbPacketManager : IPacketManager
     {
         /* Create a new cancelation token. */
         this.threadCts = new();
+        this.cancelSem = new(0);
+        this.cancelForAbrupt = false;
         
         /* Start 'em. */
         this.sendThread = new Thread(SendThread);
@@ -118,27 +115,43 @@ public class UsbPacketManager : IPacketManager
     private void OnAbruptClose()
     {
         using var l = this.abruptDisconnectLock.EnterScope();
+        
+        /* Signal the cts if this is the first thread. */
+        int count = Interlocked.Increment(ref this.curAbruptThreadCount);
+        if (count == 1)
+        {
+            cancelForAbrupt = true;
+            threadCts.Cancel();
+        }
 
         /* If the other thread already took care of things, do nothing. */
-        if (this.abruptDisconnectHandled)
+        if (this.curAbruptThreadCount != abruptThreadCount)
             return;
         
-        /* Indicate that handling has finished. */
-        this.abruptDisconnectHandled = true;
+        /* Clear abrupt thread count for next time. */
+        this.curAbruptThreadCount = 0;
+        
+        /* Clear our usb interface. */
+        Debug.Assert(this.usbIf != null);
+        this.usbIf.Dispose();
+        this.usbIf = null;
         
         /* Notify parent so it can do cleanup. */
-        this.parent.NotifyAbruptClose(this);
+        if (!isSuspended)
+            this.parent.NotifyAbruptClose(this);
     }
     
     private Error RecvPacket(ref Packets.Packet pkt)
     {
         /* Receive the packet. */
+        Debug.Assert(this.usbIf != null);
         return this.usbIf.Read(pkt.GetBuffer(), 0, Packets.Packet.PacketMaxSize, out int sizeRead);
     }
 
     private Error SendPacketImpl(Packets.Packet pkt)
     {
         /* First, send the header. */
+        Debug.Assert(this.usbIf != null);
         byte[] buf = pkt.GetBuffer();
         Error err  = this.usbIf.Write(buf, 0, Packets.Packet.HeaderSize, out int hdrSize);
         if (err != Error.Success)
@@ -153,6 +166,7 @@ public class UsbPacketManager : IPacketManager
     private async Task StopThreadsAsync()
     {
         /* Cancel current transfers. */
+        Debug.Assert(this.usbIf != null);
         await this.threadCts.CancelAsync();
         this.usbIf.Cancel();
         
@@ -179,6 +193,8 @@ public class UsbPacketManager : IPacketManager
             catch(AggregateException)
             {
                 this.cancelSem.Release();
+                if (cancelForAbrupt)
+                    this.OnAbruptClose();
                 return;
             }
 

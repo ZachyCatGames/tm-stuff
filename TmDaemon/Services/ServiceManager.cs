@@ -30,7 +30,7 @@ public class ServiceManager
     private readonly SemaphoreSlim sendLockLock = new(1); // society
     private readonly SemaphoreSlim sendWaitLock = new(0);
     private int sendLockWaiterCount = 0;
-    private bool sendLock;
+    private bool sendLock = false;
     public bool SendLock
     {
         get => sendLock;
