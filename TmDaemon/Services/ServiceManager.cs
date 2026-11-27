@@ -73,9 +73,7 @@ public class ServiceManager
         }
 
     }
-    
-    public bool InitiaiteLock { get; set; }
-    
+
     private enum CmdType
     {
         NewPacket,
@@ -288,13 +286,6 @@ public class ServiceManager
         }
         else
         {
-            /* If the initiate lock is active and this isn't a manager packet, drop it. */
-            if (InitiaiteLock && (pkt.taskId & HostTaskIdAllocator.TaskIdOriginBitsMask) == HostTaskIdAllocator.TaskIdForMgr)
-            {
-                pkt.Release();
-                return;
-            }
-            
             /* Find the target service. */
             if (taskList.FindByTaskById(pkt.taskId) is ServiceTask task)
             {
